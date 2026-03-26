@@ -1,0 +1,38 @@
+[app]
+url = "https://app-fe-chatbot-qa-yr73-bxa2d9fsfshmf3c9.eastus2-01.azurewebsites.net/%20NIJC"
+name = "NIJC Chatbot"
+
+[admin]
+url = "https://uat-admin.azurehosted.app"
+name = "NIJC Admin Portal"
+
+[credentials]
+admin_email = "testqa@immigrantjustice.org"
+admin_password = "Debut@1234"
+aadmin_email = "vishal.singhal@immigrantjustice.org"
+aadmin_password = "Debut@123"
+
+[new_calendar]
+name = "automation test canlender"
+zip = "46204"
+address = "200 E Washington St"
+expected_state = "Indiana"
+expected_city = "Indianapolis"
+services = ["Adjustment of Status", "Asylee/Refugee Family Petitions", "Citizenship"]
+service_zips = ["46204"]
+operating_hours_from = "9:00 AM"
+operating_hours_to = "5:00 PM"
+slot_duration = "30 mins"
+appointment_per_slot = 4
+break_between_appointments = "15 mins"
+scheduled_break_from = "12:00 PM"
+scheduled_break_to = "01:00 PM"
+tea_break_from = "03:00 PM"
+tea_break_to = "03:15 PM"
+tea_break_name = "Tea Break"
+
+[playwright]
+browser = "chromium"
+headless = false
+viewport = { width = 1280, height = 720 }
+timeout = 30000

@@ -1,0 +1,4 @@
+pytest
+toml
+playwright
+pytest-playwright

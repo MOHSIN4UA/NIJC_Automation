@@ -1,0 +1,10 @@
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+user_data/
+*.png
+test_results.txt
+deletion_failure.png
+.pytest_cache
+*.log
