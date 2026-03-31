@@ -127,3 +127,56 @@ calendar_no_config_day       = "//*[contains(.,'No Config') and not(self::script
 calendar_open_day_hours      = "//*[contains(@class,'MuiTypography') and contains(.,'AM') and contains(.,'PM') and contains(., '-') and not(contains(.,'Calendar'))]"
 calendar_open_day_slots      = "//h2[contains(.,'Calendar Preview')]/following::*[contains(@class,'MuiTypography') and contains(.,'slot') and contains(.,'min')]"
 calendar_open_day_service    = "//*[contains(@class,'MuiChip-label') and not(contains(.,'Open')) and not(contains(.,'Closed')) and not(contains(.,'No Config')) and not(contains(.,'more')) and string-length(normalize-space(.)) > 2]"
+
+# Manage Holidays Section
+holiday_stat_total_blocked    = "//h6[contains(., 'Total Blocked days')]/preceding-sibling::*[1]"
+holiday_stat_federal          = "//h6[contains(., 'Federal Holidays')]/preceding-sibling::*[1]"
+holiday_stat_custom           = "//h6[contains(., 'Custom Holidays')]/preceding-sibling::*[1]"
+holiday_year_select           = "//input[@id='year-filter' or @name='year']"
+holiday_location_tab_all      = "//button[@aria-label='All Locations' or (@aria-pressed and contains(., 'All Locations'))]"
+holiday_location_tab_indiana  = "//button[@aria-label='Indiana' or (@value='Indiana' and contains(@class,'MuiToggleButton'))]"
+holiday_location_tab_illinois = "//button[@aria-label='Illinois' or (@value='Illinois' and contains(@class,'MuiToggleButton'))]"
+holiday_add_new_btn           = "//button[@id='add-new-holiday-btn' or contains(., 'Add New Holiday')]"
+holiday_import_btn           = "//button[@id='import-holidays-btn' or contains(., 'Import Holidays')]"
+holiday_custom_section        = "//*[self::h3 or self::h4 or self::h5 or self::h6 or contains(@class,'MuiTypography')][contains(., 'Custom Holidays')]"
+holiday_federal_section       = "//*[self::h3 or self::h4 or self::h5 or self::h6 or contains(@class,'MuiTypography')][contains(., 'Federal Holidays')]"
+holiday_accordion_summary     = "//*[contains(@class,'MuiAccordionSummary-root') and (contains(., '{text}') or .//*[contains(., '{text}')])]"
+holiday_year_option           = "//li[@role='option' and (normalize-space()='{year}' or contains(., '{year}'))]"
+holiday_list_item             = "//*[contains(@class,'MuiAccordion-root') or contains(@class,'MuiPaper-root')]//*[contains(@class,'MuiTypography-root')]"
+holiday_modal_title = "//div[contains(@class, 'MuiDrawer-root')]//h1[text()='Add Custom Holiday']"
+holiday_name_input            = "//div[contains(@class, 'MuiDrawer-root')]//input[@id='holiday_name']"
+holiday_start_date_input      = "//div[contains(@class, 'MuiDrawer-root')]//input[@name='startDate']"
+holiday_end_date_input        = "//div[contains(@class, 'MuiDrawer-root')]//input[@name='endDate']"
+holiday_calendar_day           = "//button[contains(@class, 'MuiPickersDay-root') and not(contains(@class, 'Mui-disabled')) and not(@disabled) and normalize-space(text())='{day}']"
+holiday_calendar_next_month    = ".MuiPickerPopper-paper button.MuiPickersArrowSwitcher-nextIconButton, .MuiPickerPopper-paper button[aria-label='Next month']"
+holiday_num_days              = "//label[text()='Number of Days']/following-sibling::p"
+holiday_location_input        = "//div[contains(@class, 'MuiDrawer-root')]//input[@id='location']"
+holiday_type_input            = "//div[contains(@class, 'MuiDrawer-root')]//input[@id='holiday_type']"
+holiday_notes_input           = "//div[contains(@class, 'MuiDrawer-root')]//textarea[@name='notes']"
+holiday_submit_btn = "//div[contains(@class, 'MuiDrawer-root')]//button[@id='save']"
+holiday_cancel_btn = "//div[contains(@class, 'MuiDrawer-root')]//button[@id='cancel']"
+holiday_success_toast = "//li[@data-sonner-toast]//div[@data-title][text()='Holiday created successfully.']"
+holiday_exists_toast = "//div[text()='A holiday already exists for the specified time period.']"
+holiday_close_toast_btn = "//button[@aria-label='Close toast']"
+holiday_upload_input = "//input[@type='file']"
+holiday_upload_submit_btn = "//button[text()='Upload' and not(@disabled)]"
+
+# Breadcrumbs
+breadcrumb_dashboard = "//nav[@data-testid='qa-manage-calendar-breadcrumbs' or @aria-label='breadcrumb']//a[text()='Dashboard']"
+breadcrumb_scheduling = "//nav[@data-testid='qa-manage-calendar-breadcrumbs' or @aria-label='breadcrumb']//a[text()='Scheduling']"
+
+# Pagination
+pagination_rows_per_page_select = "//div[contains(@class, 'MuiTablePagination-select')]"
+pagination_rows_per_page_option = "//li[@data-value='{val}' or text()='{val}']"
+pagination_info = "//p[contains(@class, 'MuiTablePagination-displayedRows')]"
+pagination_next_btn = "//button[@aria-label='Go to next page']"
+pagination_prev_btn = "//button[@aria-label='Go to previous page']"
+
+# Navigation
+back_button = "//button[.//*[local-name()='svg' and @data-testid='ArrowBackIcon']]"
+
+# Map Selection
+select_on_map_btn = "//button[@id='select-on-map']"
+map_select_location_btn = "//button[text()='Select this Location' or normalize-space()='Select this Location']"
+map_cancel_btn = "//button[text()='Cancel' or normalize-space()='Cancel']"
+map_dialog = "//div[@role='presentation']//div[contains(@class, 'MuiDialog-paper')]"
