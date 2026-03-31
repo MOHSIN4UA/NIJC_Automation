@@ -75,28 +75,42 @@ def _perform_login(page, target_url, admin_xpaths, credentials):
 
     # Step 0: Check if session is already active
     try:
-        page.wait_for_url("**/dashboard", timeout=8000)
-        print("[Login] Session is active. Skipping login.")
+        page.wait_for_url("**/dashboard*", timeout=10000)
+        print("[Login] Session is already active (Dashboard detected). Skipping.")
         return
     except:
-        pass  # Need to login
+        if "/dashboard" in page.url:
+            print("[Login] URL contains dashboard. Skipping login flow.")
+            return
 
     page.wait_for_load_state("domcontentloaded")
 
     # Step 1: Wait for the SSO login button and click it
     print("[Login] Waiting for SSO login button...")
     try:
+        # Check if already logged in first
+        if "/dashboard" in page.url: return
+
         page.wait_for_selector(admin_xpaths["login_with_sso"], timeout=15000)
         print("[Login] Clicking 'Login with SSO'...")
         page.locator(admin_xpaths["login_with_sso"]).click()
     except Exception as e:
-        print(f"[Login] SSO button not found: {e} — current URL: {page.url}")
+        if "/dashboard" in page.url:
+            print("[Login] Dashboard reached before SSO click. Continuing.")
+            return
+        print(f"[Login] SSO button not found/interrupted: {e} — current URL: {page.url}")
 
     # Step 2: Wait for Microsoft login page
     print("[Login] Waiting for Microsoft login page...")
-    page.wait_for_url("**/login.microsoftonline.com/**", timeout=30000)
-    page.wait_for_load_state("networkidle", timeout=30000)
-    print(f"[Login] On MS page: {page.url}")
+    try:
+        page.wait_for_url("**/login.microsoftonline.com/**", timeout=20000)
+        page.wait_for_load_state("networkidle", timeout=30000)
+        print(f"[Login] On MS page: {page.url}")
+    except Exception as e:
+        if "/dashboard" in page.url:
+            print("[Login] Landed on dashboard instead of MS login (session active).")
+            return
+        raise e
 
     # Handle "Pick an account" / Account Selection if it appears
     try:
