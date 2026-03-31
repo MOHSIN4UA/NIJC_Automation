@@ -3,8 +3,13 @@ venv/
 __pycache__/
 .pytest_cache/
 user_data/
+tests/passkey_user_data/
 *.png
-test_results.txt
+*.webp
+*.html
+test_output.txt
 deletion_failure.png
 .pytest_cache
 *.log
+google.conf
+debug_*.py

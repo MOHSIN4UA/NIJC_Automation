@@ -1,0 +1,169 @@
+[1m============================= test session starts ==============================[0m
+platform linux -- Python 3.12.3, pytest-9.0.2, pluggy-1.6.0 -- /home/mohsin/Downloads/NIJC_Automation/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/mohsin/Downloads/NIJC_Automation
+configfile: pytest.ini
+plugins: base-url-2.1.0, playwright-0.7.2
+[1mcollecting ... [0mcollected 59 items / 57 deselected / 2 selected
+
+tests/test_admin_portal.py::test_tc055_verify_add_holiday_modal_opens [Login] Navigating to https://uat-admin.azurehosted.app...
+[Login] Waiting for SSO login button...
+[Login] Clicking 'Login with SSO'...
+[Login] Waiting for Microsoft login page...
+[Login] On MS page: https://login.microsoftonline.com/f9f7f772-02c5-4de5-905e-a063362ce871/oauth2/v2.0/authorize?client_id=2dc51451-227f-45e6-9dbe-afcb6907f0d8&scope=openid%20profile%20email&response_type=code&redirect_uri=https%3A%2F%2Fuat-nijc-be-admin-svc.azurehosted.app%2Fapi%2Fv1.0.0%2Fauth%2Fmicrosoft%2Fcallback&response_mode=query&code_challenge=IT5W-CsxufG9lHGRnl6zjhK8vdK4w6Sf6ssfAiQZrFQ&code_challenge_method=S256&state=B1q_8aKp9eiLcAvuc-2J0hrWxIlH0KYP0BProFXdyPU&prompt=select_account
+[Login] Selecting existing account: testqa@immigrantjustice.org...
+[Login] Email field not found — may already be pre-filled or account selected.
+[Login] Password field not found. Current URL: https://uat-admin.azurehosted.app/login
+
+============================================================
+  *** ACTION REQUIRED: APPROVE MFA ON YOUR PHONE ***
+  DO NOT CLOSE THE BROWSER WINDOW.
+  Waiting up to 2 minutes for dashboard to appear...
+============================================================
+
+[31mERROR[0m
+tests/test_admin_portal.py::test_tc060_verify_number_of_days_calculation [31mERROR[0m
+
+==================================== ERRORS ====================================
+[31m[1m_________ ERROR at setup of test_tc055_verify_add_holiday_modal_opens __________[0m
+
+playwright = <playwright._impl._playwright.Playwright object at 0x7e34ba5fb920>
+config = {'admin': {'name': 'NIJC Admin Portal', 'url': 'https://uat-admin.azurehosted.app'}, 'app': {'name': 'NIJC Chatbot', '...on St', 'appointment_per_slot': 4, 'break_between_appointments': '15 mins', 'expected_city': 'Indianapolis', ...}, ...}
+xpaths = {'admin_portal': {'activate_from_input': "//input[@name='activateFrom']", 'add_new_calendar_btn': "//button[@id='add-c.../button[contains(., 'Kòmanse an kreyòl ayisyen')]", 'begin_english': "//button[contains(., 'Begin in English')]", ...}}
+
+    [0m[37m@pytest[39;49;00m.fixture(scope=[33m"[39;49;00m[33msession[39;49;00m[33m"[39;49;00m)[90m[39;49;00m
+    [94mdef[39;49;00m[90m [39;49;00m[92madmin_session[39;49;00m(playwright, config, xpaths):[90m[39;49;00m
+    [90m    [39;49;00m[33m"""[39;49;00m
+    [33m    Fixture for Admin Portal session.[39;49;00m
+    [33m    Uses a persistent browser context to save session data.[39;49;00m
+    [33m    """[39;49;00m[90m[39;49;00m
+        admin_config = config[[33m"[39;49;00m[33madmin[39;49;00m[33m"[39;49;00m][90m[39;49;00m
+        playwright_config = config[[33m"[39;49;00m[33mplaywright[39;49;00m[33m"[39;49;00m][90m[39;49;00m
+        admin_xpaths = xpaths[[33m"[39;49;00m[33madmin_portal[39;49;00m[33m"[39;49;00m][90m[39;49;00m
+        credentials = config[[33m"[39;49;00m[33mcredentials[39;49;00m[33m"[39;49;00m][90m[39;49;00m
+        target_url = admin_config[[33m"[39;49;00m[33murl[39;49;00m[33m"[39;49;00m][90m[39;49;00m
+        user_data_dir = [33m"[39;49;00m[33muser_data[39;49;00m[33m"[39;49;00m[90m[39;49;00m
+    [90m[39;49;00m
+        [90m# Pre-launch cleanup: Terminate any stale Chromium processes and remove SingletonLock[39;49;00m[90m[39;49;00m
+        [94mtry[39;49;00m:[90m[39;49;00m
+            [94mif[39;49;00m os.path.exists(user_data_dir):[90m[39;49;00m
+                [94mimport[39;49;00m[90m [39;49;00m[04m[96msubprocess[39;49;00m[90m[39;49;00m
+                [90m# Brute force kill any stale chromium processes using this data dir[39;49;00m[90m[39;49;00m
+                subprocess.run([[33m"[39;49;00m[33mpkill[39;49;00m[33m"[39;49;00m, [33m"[39;49;00m[33m-f[39;49;00m[33m"[39;49;00m, [33m"[39;49;00m[33mchromium[39;49;00m[33m"[39;49;00m], capture_output=[94mTrue[39;49;00m)[90m[39;49;00m
+                page_lock = os.path.join(user_data_dir, [33m"[39;49;00m[33mSingletonLock[39;49;00m[33m"[39;49;00m)[90m[39;49;00m
+                [94mif[39;49;00m os.path.exists(page_lock):[90m[39;49;00m
+                    os.remove(page_lock)[90m[39;49;00m
+                    [96mprint[39;49;00m([33mf[39;49;00m[33m"[39;49;00m[33m[Fixture] Cleared stale SingletonLock: [39;49;00m[33m{[39;49;00mpage_lock[33m}[39;49;00m[33m"[39;49;00m)[90m[39;49;00m
+        [94mexcept[39;49;00m [96mException[39;49;00m [94mas[39;49;00m e:[90m[39;49;00m
+            [96mprint[39;49;00m([33mf[39;49;00m[33m"[39;49;00m[33m[Fixture] Cleanup warning: [39;49;00m[33m{[39;49;00me[33m}[39;49;00m[33m"[39;49;00m)[90m[39;49;00m
+    [90m[39;49;00m
+        [90m# Launch a persistent browser context[39;49;00m[90m[39;49;00m
+        context = playwright.chromium.launch_persistent_context([90m[39;49;00m
+            user_data_dir=user_data_dir,[90m[39;49;00m
+            headless=playwright_config.get([33m"[39;49;00m[33mheadless[39;49;00m[33m"[39;49;00m, [94mFalse[39;49;00m),[90m[39;49;00m
+            viewport=playwright_config.get([33m"[39;49;00m[33mviewport[39;49;00m[33m"[39;49;00m, {[33m"[39;49;00m[33mwidth[39;49;00m[33m"[39;49;00m: [94m1280[39;49;00m, [33m"[39;49;00m[33mheight[39;49;00m[33m"[39;49;00m: [94m720[39;49;00m})[90m[39;49;00m
+        )[90m[39;49;00m
+        page = context.pages[[94m0[39;49;00m] [94mif[39;49;00m context.pages [94melse[39;49;00m context.new_page()[90m[39;49;00m
+    [90m[39;49;00m
+>       _perform_login(page, target_url, admin_xpaths, credentials)[90m[39;49;00m
+
+[1m[31mconftest.py[0m:52: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+[1m[31mconftest.py[0m:150: in _perform_login
+    [0mpage.wait_for_url([33m"[39;49;00m[33m**/dashboard[39;49;00m[33m"[39;49;00m, timeout=[94m120000[39;49;00m)[90m[39;49;00m
+[1m[31m.venv/lib/python3.12/site-packages/playwright/sync_api/_generated.py[0m:9197: in wait_for_url
+    [0m[96mself[39;49;00m._sync([90m[39;49;00m
+[1m[31m.venv/lib/python3.12/site-packages/playwright/_impl/_page.py[0m:580: in wait_for_url
+    [0m[94mreturn[39;49;00m [94mawait[39;49;00m [96mself[39;49;00m._main_frame.wait_for_url(**locals_to_params([96mlocals[39;49;00m()))[90m[39;49;00m
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[90m[39;49;00m
+[1m[31m.venv/lib/python3.12/site-packages/playwright/_impl/_frame.py[0m:263: in wait_for_url
+    [0m[94masync[39;49;00m [94mwith[39;49;00m [96mself[39;49;00m.expect_navigation([90m[39;49;00m
+[1m[31m.venv/lib/python3.12/site-packages/playwright/_impl/_event_context_manager.py[0m:33: in __aexit__
+    [0m[94mawait[39;49;00m [96mself[39;49;00m._future[90m[39;49;00m
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    [0m[94masync[39;49;00m [94mdef[39;49;00m[90m [39;49;00m[92mcontinuation[39;49;00m() -> Optional[Response]:[90m[39;49;00m
+>       event = [94mawait[39;49;00m waiter.result()[90m[39;49;00m
+                ^^^^^^^^^^^^^^^^^^^^^[90m[39;49;00m
+[1m[31mE       playwright._impl._errors.Error: Target page, context or browser has been closed[0m
+[1m[31mE       =========================== logs ===========================[0m
+[1m[31mE       waiting for navigation to "**/dashboard" until 'load'[0m
+[1m[31mE       ============================================================[0m
+
+[1m[31m.venv/lib/python3.12/site-packages/playwright/_impl/_frame.py[0m:239: Error
+[31m[1m________ ERROR at setup of test_tc060_verify_number_of_days_calculation ________[0m
+
+playwright = <playwright._impl._playwright.Playwright object at 0x7e34ba5fb920>
+config = {'admin': {'name': 'NIJC Admin Portal', 'url': 'https://uat-admin.azurehosted.app'}, 'app': {'name': 'NIJC Chatbot', '...on St', 'appointment_per_slot': 4, 'break_between_appointments': '15 mins', 'expected_city': 'Indianapolis', ...}, ...}
+xpaths = {'admin_portal': {'activate_from_input': "//input[@name='activateFrom']", 'add_new_calendar_btn': "//button[@id='add-c.../button[contains(., 'Kòmanse an kreyòl ayisyen')]", 'begin_english': "//button[contains(., 'Begin in English')]", ...}}
+
+    [0m[37m@pytest[39;49;00m.fixture(scope=[33m"[39;49;00m[33msession[39;49;00m[33m"[39;49;00m)[90m[39;49;00m
+    [94mdef[39;49;00m[90m [39;49;00m[92madmin_session[39;49;00m(playwright, config, xpaths):[90m[39;49;00m
+    [90m    [39;49;00m[33m"""[39;49;00m
+    [33m    Fixture for Admin Portal session.[39;49;00m
+    [33m    Uses a persistent browser context to save session data.[39;49;00m
+    [33m    """[39;49;00m[90m[39;49;00m
+        admin_config = config[[33m"[39;49;00m[33madmin[39;49;00m[33m"[39;49;00m][90m[39;49;00m
+        playwright_config = config[[33m"[39;49;00m[33mplaywright[39;49;00m[33m"[39;49;00m][90m[39;49;00m
+        admin_xpaths = xpaths[[33m"[39;49;00m[33madmin_portal[39;49;00m[33m"[39;49;00m][90m[39;49;00m
+        credentials = config[[33m"[39;49;00m[33mcredentials[39;49;00m[33m"[39;49;00m][90m[39;49;00m
+        target_url = admin_config[[33m"[39;49;00m[33murl[39;49;00m[33m"[39;49;00m][90m[39;49;00m
+        user_data_dir = [33m"[39;49;00m[33muser_data[39;49;00m[33m"[39;49;00m[90m[39;49;00m
+    [90m[39;49;00m
+        [90m# Pre-launch cleanup: Terminate any stale Chromium processes and remove SingletonLock[39;49;00m[90m[39;49;00m
+        [94mtry[39;49;00m:[90m[39;49;00m
+            [94mif[39;49;00m os.path.exists(user_data_dir):[90m[39;49;00m
+                [94mimport[39;49;00m[90m [39;49;00m[04m[96msubprocess[39;49;00m[90m[39;49;00m
+                [90m# Brute force kill any stale chromium processes using this data dir[39;49;00m[90m[39;49;00m
+                subprocess.run([[33m"[39;49;00m[33mpkill[39;49;00m[33m"[39;49;00m, [33m"[39;49;00m[33m-f[39;49;00m[33m"[39;49;00m, [33m"[39;49;00m[33mchromium[39;49;00m[33m"[39;49;00m], capture_output=[94mTrue[39;49;00m)[90m[39;49;00m
+                page_lock = os.path.join(user_data_dir, [33m"[39;49;00m[33mSingletonLock[39;49;00m[33m"[39;49;00m)[90m[39;49;00m
+                [94mif[39;49;00m os.path.exists(page_lock):[90m[39;49;00m
+                    os.remove(page_lock)[90m[39;49;00m
+                    [96mprint[39;49;00m([33mf[39;49;00m[33m"[39;49;00m[33m[Fixture] Cleared stale SingletonLock: [39;49;00m[33m{[39;49;00mpage_lock[33m}[39;49;00m[33m"[39;49;00m)[90m[39;49;00m
+        [94mexcept[39;49;00m [96mException[39;49;00m [94mas[39;49;00m e:[90m[39;49;00m
+            [96mprint[39;49;00m([33mf[39;49;00m[33m"[39;49;00m[33m[Fixture] Cleanup warning: [39;49;00m[33m{[39;49;00me[33m}[39;49;00m[33m"[39;49;00m)[90m[39;49;00m
+    [90m[39;49;00m
+        [90m# Launch a persistent browser context[39;49;00m[90m[39;49;00m
+        context = playwright.chromium.launch_persistent_context([90m[39;49;00m
+            user_data_dir=user_data_dir,[90m[39;49;00m
+            headless=playwright_config.get([33m"[39;49;00m[33mheadless[39;49;00m[33m"[39;49;00m, [94mFalse[39;49;00m),[90m[39;49;00m
+            viewport=playwright_config.get([33m"[39;49;00m[33mviewport[39;49;00m[33m"[39;49;00m, {[33m"[39;49;00m[33mwidth[39;49;00m[33m"[39;49;00m: [94m1280[39;49;00m, [33m"[39;49;00m[33mheight[39;49;00m[33m"[39;49;00m: [94m720[39;49;00m})[90m[39;49;00m
+        )[90m[39;49;00m
+        page = context.pages[[94m0[39;49;00m] [94mif[39;49;00m context.pages [94melse[39;49;00m context.new_page()[90m[39;49;00m
+    [90m[39;49;00m
+>       _perform_login(page, target_url, admin_xpaths, credentials)[90m[39;49;00m
+
+[1m[31mconftest.py[0m:52: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+[1m[31mconftest.py[0m:150: in _perform_login
+    [0mpage.wait_for_url([33m"[39;49;00m[33m**/dashboard[39;49;00m[33m"[39;49;00m, timeout=[94m120000[39;49;00m)[90m[39;49;00m
+[1m[31m.venv/lib/python3.12/site-packages/playwright/sync_api/_generated.py[0m:9197: in wait_for_url
+    [0m[96mself[39;49;00m._sync([90m[39;49;00m
+[1m[31m.venv/lib/python3.12/site-packages/playwright/_impl/_page.py[0m:580: in wait_for_url
+    [0m[94mreturn[39;49;00m [94mawait[39;49;00m [96mself[39;49;00m._main_frame.wait_for_url(**locals_to_params([96mlocals[39;49;00m()))[90m[39;49;00m
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[90m[39;49;00m
+[1m[31m.venv/lib/python3.12/site-packages/playwright/_impl/_frame.py[0m:263: in wait_for_url
+    [0m[94masync[39;49;00m [94mwith[39;49;00m [96mself[39;49;00m.expect_navigation([90m[39;49;00m
+[1m[31m.venv/lib/python3.12/site-packages/playwright/_impl/_event_context_manager.py[0m:33: in __aexit__
+    [0m[94mawait[39;49;00m [96mself[39;49;00m._future[90m[39;49;00m
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    [0m[94masync[39;49;00m [94mdef[39;49;00m[90m [39;49;00m[92mcontinuation[39;49;00m() -> Optional[Response]:[90m[39;49;00m
+>       event = [94mawait[39;49;00m waiter.result()[90m[39;49;00m
+                ^^^^^^^^^^^^^^^^^^^^^[90m[39;49;00m
+[1m[31mE       playwright._impl._errors.Error: Target page, context or browser has been closed[0m
+[1m[31mE       =========================== logs ===========================[0m
+[1m[31mE       waiting for navigation to "**/dashboard" until 'load'[0m
+[1m[31mE       ============================================================[0m
+
+[1m[31m.venv/lib/python3.12/site-packages/playwright/_impl/_frame.py[0m:239: Error
+[36m[1m=========================== short test summary info ============================[0m
+[31mERROR[0m tests/test_admin_portal.py::[1mtest_tc055_verify_add_holiday_modal_opens[0m - playwright._impl._errors.Error: Target page, context or browser has been closed
+=========================== logs ===========================
+waiting for navigation to "**/dashboard" until 'load'
+============================================================
+[31mERROR[0m tests/test_admin_portal.py::[1mtest_tc060_verify_number_of_days_calculation[0m - playwright._impl._errors.Error: Target page, context or browser has been closed
+=========================== logs ===========================
+waiting for navigation to "**/dashboard" until 'load'
+============================================================
+[31m================= [33m57 deselected[0m, [31m[1m2 errors[0m[31m in 114.96s (0:01:54)[0m[31m =================[0m

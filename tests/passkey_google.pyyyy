@@ -1,0 +1,179 @@
+from playwright.sync_api import sync_playwright
+import os
+
+def test_google_login():
+    with sync_playwright() as p:
+        # Use persistent browser context to save session/cookies
+        user_data_dir = os.path.join(os.getcwd(), "passkey_user_data")
+        
+        if os.path.exists(user_data_dir):
+            lock_file = os.path.join(user_data_dir, "SingletonLock")
+            if os.path.exists(lock_file):
+                try:
+                    os.remove(lock_file)
+                    print(f"[Cleanup] Removed stale lock: {lock_file}")
+                except Exception as e:
+                    print(f"[Cleanup] Warning: Could not remove lock: {e}")
+        else:
+            os.makedirs(user_data_dir)
+            
+        context = p.chromium.launch_persistent_context(
+            user_data_dir,
+            headless=False,
+            args=["--start-maximized"]
+        )
+        page = context.pages[0] if context.pages else context.new_page()
+        
+        # Log console for debugging
+        page.on("console", lambda msg: print(f"[Browser Console] {msg.type}: {msg.text}"))
+
+        # URL based on user screenshot
+        target_url = "https://qa-app.yieldz.net/auth/custom/sign-options"
+        print(f"[Google Login] Navigating to {target_url}...")
+        page.goto(target_url)
+        page.wait_for_load_state("networkidle")
+
+        # Load credentials from google.conf
+        import toml
+        # Robust path resolution to find google.conf in the root directory
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        config_path = os.path.join(root_dir, "google.conf")
+        
+        if not os.path.exists(config_path):
+            raise FileNotFoundError(f"Could not find 'google.conf' at {config_path}")
+            
+        config = toml.load(config_path)
+        credentials = config["credentials"]
+        email = credentials["google_email"]
+        password = credentials["google_password"]
+
+        # 1. Click LOG IN tab (Main Group)
+        page.screenshot(path="before_login_tab.png")
+        login_tab = page.locator("//button[@data-testid='qa-1' or @id='yieldzs-tab-1']").first
+        login_tab.wait_for(state="visible", timeout=10000)
+        print("[Google Login] Clicking 'LOG IN' tab...")
+        login_tab.click()
+        page.wait_for_timeout(2000)
+
+        # 2. Click Continue with Google tab (Nested 2FA Group)
+        google_tab = page.locator("//*[@id='2fa-tabs']//button[@data-testid='qa-2' or @id='yieldzs-tab-2']").first
+        google_tab.wait_for(state="visible", timeout=10000)
+        print("[Google Login] Clicking 'Continue with Google' tab...")
+        google_tab.click()
+        page.wait_for_timeout(2000)
+
+        # 3. Click the actual CONTINUE button
+        final_btn = page.locator("//button[@id='continue-with-google-login' or @data-testid='qa-continue_with_google_login']").first
+        if final_btn.is_visible(timeout=10000):
+            print(f"[Google Login] Clicking final 'CONTINUE WITH GOOGLE' button...")
+            try:
+                # Some apps open a popup, others redirect. We'll try to catch both.
+                with context.expect_page(timeout=5000) as popup_info:
+                    final_btn.click(force=True)
+                google_page = popup_info.value
+                google_page.wait_for_load_state("networkidle")
+                print(f"[Google Login] Popup opened: {google_page.url}")
+            except:
+                print(f"[Google Login] No popup, assuming redirect on main page.")
+                google_page = page
+        else:
+            print("[Google Login] Final button not visible. Trying text fallback...")
+            final_btn = page.locator('button').filter(has_text="CONTINUE WITH GOOGLE")
+            if final_btn.count() > 0:
+                final_btn.first.click(force=True)
+            google_page = page
+        
+        # Now use google_page for the login flow
+        if "accounts.google.com" in google_page.url:
+            print(f"[Google Login] Handling Google Login for: {email} on {google_page.url}")
+            google_page.screenshot(path="google_start.png")
+            
+            # 0. Check for Account Picker
+            # Try multiple selectors for account picker
+            account_picker = google_page.locator('div[data-accountemail], [data-email]').first
+            if account_picker.count() > 0:
+                target_account = google_page.locator(f'[data-accountemail="{email}"], [data-email="{email}"]').first
+                if target_account.count() > 0:
+                    print(f"[Google Login] Clicking target account: {email}")
+                    target_account.click()
+                    google_page.wait_for_timeout(3000)
+                else:
+                    print(f"[Google Login] Target account {email} not found in picker. Looking for text...")
+                    target_text = google_page.get_by_text(email, exact=False)
+                    if target_text.count() > 0:
+                        print(f"[Google Login] Clicking account by text: {email}")
+                        target_text.first.click()
+                        google_page.wait_for_timeout(3000)
+
+            # 1. Email Page (if not already bypassed by account picker)
+            # Try multiple selectors for email field
+            email_field = google_page.locator('input[type="email"], input[name="identifier"]').first
+            if email_field.is_visible(timeout=5000):
+                print(f"[Google Login] Entering email: {email}")
+                email_field.fill(email)
+                google_page.keyboard.press("Enter")
+                google_page.wait_for_timeout(5000)
+            
+            # 2. Password Page
+            # Try multiple selectors for password field
+            password_field = google_page.locator('input[type="password"], input[name="password"]').first
+            try:
+                password_field.wait_for(state="visible", timeout=15000)
+                print(f"[Google Login] Entering password...")
+                password_field.fill(password)
+                google_page.keyboard.press("Enter")
+                google_page.wait_for_timeout(10000)
+            except Exception as e:
+                print(f"[Google Login] Password field not found or already logged in: {e}")
+                google_page.screenshot(path="google_password_failure.png")
+
+            # 3. Check for "Verify it's you" or "Choose an account"
+            if "accounts.google.com" in google_page.url:
+                print("\n" + "!"*60)
+                print("  *** ACTION REQUIRED: COMPLETE GOOGLE VERIFICATION ***")
+                print("  Google may be asking for MFA or confirmation.")
+                print("  Please complete this in the browser window.")
+                print("!"*60 + "\n")
+                google_page.screenshot(path="google_verification.png")
+                try:
+                    google_page.wait_for_url("**/yieldz.net/**", timeout=120000)
+                except:
+                    print("[Google Login] Still on Google page. Pausing...")
+                    google_page.wait_for_timeout(30000) 
+
+        # 4. Handle Managed Profile Prompts (if they appear as web content)
+        for text in ["Continue as Mohsin", "Continue", "Confirm"]:
+            try:
+                btn = page.get_by_text(text, exact=True)
+                if btn.count() > 0 and btn.is_visible(timeout=2000):
+                    print(f"[Google Login] Clicking browser prompt: {text}")
+                    btn.first.click()
+                    page.wait_for_timeout(2000)
+            except:
+                pass
+
+        # Wait for redirect and success message
+        try:
+            page.wait_for_url("**/yieldz.net/dashboard**", timeout=60000)
+            print(f"[Google Login] Landed on dashboard: {page.url}")
+            
+            # Check for success toast
+            success_toast = page.get_by_text("Google authentication successful.", exact=False)
+            if success_toast.is_visible(timeout=10000):
+                print("[Google Login] SUCCESS: 'Google authentication successful.' message found!")
+            else:
+                print("[Google Login] Warning: Dashboard loaded but success message not found.")
+                
+            page.screenshot(path="dashboard_success.png")
+        except Exception as e:
+            print(f"[Google Login] Final check failed. Current URL: {page.url} - Error: {e}")
+            page.screenshot(path="login_failure.png")
+
+        # Summary
+        print(f"[Google Login] Final URL: {page.url}")
+        page.wait_for_timeout(5000)
+        
+        context.close()
+
+if __name__ == "__main__":
+    test_google_login()
