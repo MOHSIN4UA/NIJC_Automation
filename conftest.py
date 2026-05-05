@@ -1,6 +1,7 @@
 import pytest
 import toml
 import os, shutil
+from datetime import datetime
 from playwright.sync_api import sync_playwright
 
 # ---------------------------------------------------------------------------
@@ -48,20 +49,87 @@ def admin_session(playwright, config, xpaths):
         viewport=playwright_config.get("viewport", {"width": 1280, "height": 720})
     )
     page = context.pages[0] if context.pages else context.new_page()
+    page.set_default_navigation_timeout(60000)
+    page.set_default_timeout(60000)
 
     _perform_login(page, target_url, admin_xpaths, credentials)
 
     # Wait for dashboard to be ready
     print("Confirming dashboard is loaded...")
-    try:
-        page.wait_for_selector(admin_xpaths["dashboard_welcome_text"], timeout=30000)
-        print("Dashboard loaded successfully.")
-    except:
-        print("Warning: Dashboard welcome text not found in 30s. Continuing anyway.")
+    for attempt in range(3):
+        try:
+            page.wait_for_selector(admin_xpaths["dashboard_welcome_text"], timeout=45000)
+            print("Dashboard loaded successfully.")
+            break
+        except:
+            print(f"Warning: Dashboard welcome text not found (attempt {attempt+1}). Reloading...")
+            page.reload()
+            page.wait_for_load_state("networkidle")
+            page.wait_for_timeout(3000)
 
     yield page, admin_xpaths, config
 
     context.close()
+
+
+# ---------------------------------------------------------------------------
+# User Dashboard session — opens a NEW TAB, logs in only when requested
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="function")
+def user_dashboard_session(admin_session):
+    """
+    Opens the User Dashboard in a new browser tab and logs in if needed.
+    Only executes when a test explicitly requests this fixture (not autouse).
+    Yields: (user_page, user_xpaths, config)
+    """
+    import toml
+
+    page, admin_xpaths, config = admin_session
+
+    # Load user_dashboard xpaths from the xpath.toml
+    try:
+        mc_data = toml.load("xpath.toml")
+        user_xpaths = mc_data.get("user_dashboard", {})
+    except Exception as e:
+        pytest.fail(f"[user_dashboard_session] Could not load xpath.toml: {e}")
+
+    login_url = user_xpaths.get("login_url")
+    if not login_url:
+        pytest.fail("[user_dashboard_session] 'login_url' not found in [user_dashboard] section of xpath.toml")
+
+    credentials = config.get("credentials", {})
+
+    print(f"[user_dashboard_session] Opening User Dashboard in a new tab: {login_url}")
+    user_page = page.context.new_page()
+    user_page.bring_to_front()
+    user_page.goto(login_url, wait_until="load", timeout=90000)
+    user_page.screenshot(path=f"screenshots/user_dashboard_landing_{datetime.now().strftime('%H%M%S')}.jpg")
+
+    # Determine whether we need to log in
+    try:
+        selector = f"({user_xpaths['email_input']}) | ({user_xpaths['new_appointment_btn']})"
+        print("[user_dashboard_session] Waiting for login form or dashboard...")
+        user_page.locator(selector).first.wait_for(state="visible", timeout=60000)
+
+        if user_page.locator(user_xpaths["new_appointment_btn"]).is_visible():
+            print("[user_dashboard_session] Already logged in via shared session.")
+        else:
+            print("[user_dashboard_session] Login form detected — logging in.")
+            user_page.locator(user_xpaths["email_input"]).fill(credentials.get("user_email", ""))
+            user_page.locator(user_xpaths["password_input"]).fill(credentials.get("user_password", ""))
+            user_page.locator(user_xpaths["login_btn"]).click()
+            user_page.wait_for_selector(user_xpaths["new_appointment_btn"], timeout=60000)
+            print("[user_dashboard_session] Logged in successfully.")
+    except Exception as e:
+        user_page.screenshot(path=f"screenshots/user_dashboard_login_error_{datetime.now().strftime('%H%M%S')}.jpg")
+        user_page.close()
+        pytest.fail(f"[user_dashboard_session] Could not reach User Dashboard: {e}")
+
+    yield user_page, user_xpaths, config
+
+    print("[user_dashboard_session] Closing User Dashboard tab.")
+    user_page.close()
 
 
 # ---------------------------------------------------------------------------
@@ -70,32 +138,105 @@ def admin_session(playwright, config, xpaths):
 
 def _perform_login(page, target_url, admin_xpaths, credentials):
     """Navigate to the app and run the login flow if needed."""
-    print(f"[Login] Navigating to {target_url}...")
-    page.goto(target_url)
+    
+    # Retry loop for initial navigation to handle net::ERR_ABORTED
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            print(f"[Login] Navigating to {target_url} (Attempt {attempt+1}/{max_retries})...")
+            page.goto(target_url, wait_until="domcontentloaded", timeout=60000)
+            break
+        except Exception as e:
+            print(f"[Login] Navigation attempt {attempt+1} failed: {e}")
+            if attempt == max_retries - 1:
+                raise e
+            page.wait_for_timeout(3000)
 
-    # Step 0: Check if session is already active
-    try:
-        page.wait_for_url("**/dashboard", timeout=8000)
-        print("[Login] Session is active. Skipping login.")
+    # Step 0: Check if session is already active (try reaching dashboard directly)
+    print(f"[Login] Checking session state at {page.url}...")
+    if "/dashboard" in page.url:
+        print("[Login] Already on dashboard. Skipping login.")
         return
-    except:
-        pass  # Need to login
+        
+    try:
+        # If we're at /login, try navigating to /dashboard once to see if it lets us in
+        if "/login" in page.url:
+            print("[Login] At /login, attempting to jump to /dashboard...")
+            page.goto(f"{target_url.rstrip('/')}/dashboard")
+            # Wait for either /dashboard (success) or /login (failure/redirect)
+            page.wait_for_load_state("networkidle", timeout=10000)
+            page.wait_for_timeout(2000)
+            
+            # Check if we are REALLY on dashboard (not just a redirect param in URL)
+            is_on_dashboard = "/dashboard" in page.url and "/login" not in page.url
+            
+            if is_on_dashboard:
+                # Ensure no error message is present
+                err_loc = page.locator(f"{admin_xpaths['session_expired_msg']} | {admin_xpaths['network_error_msg']}")
+                if err_loc.count() == 0 or not err_loc.first.is_visible(timeout=1000):
+                    print("[Login] Session restored via direct navigation. Skipping login.")
+                    return
+            print(f"[Login] Session not restored (URL: {page.url}). Proceeding to login flow...")
+            if "/login" not in page.url:
+                page.goto(target_url)
+    except Exception as e:
+        print(f"[Login] Error during session restoration check: {e}")
+
+    # Ensure we are at the target URL (login page) before starting flow
+    if "/dashboard" not in page.url:
+        print(f"[Login] Not logged in. Navigating to {target_url}...")
+        page.goto(target_url)
+
+    # Step 0.1: Check for session expiration or network error and retry if found
+    print(f"[Login] Resilience check (URL: {page.url})...")
+    page.wait_for_load_state("domcontentloaded")
+    page.wait_for_timeout(1000)
+    
+    # Corrected: Use pipe (|) instead of comma for combined XPath
+    error_locator = page.locator(f"{admin_xpaths['session_expired_msg']} | {admin_xpaths['network_error_msg']}")
+    
+    if error_locator.count() > 0 and error_locator.first.is_visible(timeout=5000):
+        error_text = error_locator.first.inner_text()
+        print(f"[Login] Resilience: Error detected: '{error_text}'. Reloading...")
+        page.reload()
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(2000)
 
     page.wait_for_load_state("domcontentloaded")
+
+    # Step 0.2: Final check if we are already logged in after navigation/reloads
+    if "/dashboard" in page.url and "?" not in page.url:
+        print("[Login] Authenticated state confirmed. Skipping SSO click.")
+        return
 
     # Step 1: Wait for the SSO login button and click it
     print("[Login] Waiting for SSO login button...")
     try:
         page.wait_for_selector(admin_xpaths["login_with_sso"], timeout=15000)
+        
+        # Check for dashboard redirection before clicking
+        if "/dashboard" in page.url:
+            print("[Login] Redirection detected during SSO wait. Skipping.")
+            return
+
         print("[Login] Clicking 'Login with SSO'...")
         page.locator(admin_xpaths["login_with_sso"]).click()
     except Exception as e:
-        print(f"[Login] SSO button not found: {e} — current URL: {page.url}")
+        if "/dashboard" in page.url:
+            print("[Login] Authenticated state confirmed in except block. Proceeding.")
+            return
+        print(f"[Login] SSO button not found and not on dashboard: {e} — current URL: {page.url}")
 
     # Step 2: Wait for Microsoft login page
     print("[Login] Waiting for Microsoft login page...")
-    page.wait_for_url("**/login.microsoftonline.com/**", timeout=30000)
-    page.wait_for_load_state("networkidle", timeout=30000)
+    try:
+        page.wait_for_url("**/login.microsoftonline.com/**", timeout=60000)
+        page.wait_for_load_state("networkidle", timeout=60000)
+    except Exception as e:
+        print(f"[Login] Warning: Microsoft page redirect timed out or URL mismatch: {e}")
+        # If we are already on a login page or account picker, continue
+        if "microsoftonline.com" not in page.url:
+            raise e
     print(f"[Login] On MS page: {page.url}")
 
     # Handle "Pick an account" / Account Selection if it appears
@@ -178,3 +319,75 @@ def run_auth_setup():
 
 if __name__ == "__main__":
     run_auth_setup()
+
+
+# ---------------------------------------------------------------------------
+# HTML Reporting hooks
+# ---------------------------------------------------------------------------
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """
+    Hook to capture screenshot on failure and add it to the HTML report.
+    """
+    outcome = yield
+    report = outcome.get_result()
+    extra = getattr(report, "extra", [])
+
+    # Add test description from docstring
+    if item.obj.__doc__:
+        report.description = item.obj.__doc__.strip()
+    else:
+        report.description = ""
+
+    if report.when == "call":
+        xfail = hasattr(report, "wasxfail")
+        if (report.skipped and xfail) or (report.failed and not xfail):
+            # Capture screenshot if 'admin_session' fixture is used
+            if "admin_session" in item.fixturenames:
+                try:
+                    page, admin_xpaths, config = item.funcargs["admin_session"]
+                    
+                    # Screenshots are now stored in the folder 'screenshots'
+                    screenshot_dir = "screenshots"
+                    if not os.path.exists(screenshot_dir):
+                        os.makedirs(screenshot_dir)
+                    
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    screenshot_name = f"{item.name}_{timestamp}.jpg"
+                    screenshot_path = os.path.join(screenshot_dir, screenshot_name)
+                    
+                    page.screenshot(path=screenshot_path)
+                    if os.path.exists(screenshot_path):
+                        from pytest_html import extras
+                        # Use relative path for HTML embedding
+                        extra.append(extras.image(screenshot_path))
+                except Exception as e:
+                    print(f"Failed to capture screenshot: {e}")
+
+        report.extra = extra
+
+
+def pytest_configure(config):
+    """
+    Ensure report directory exists before tests start.
+    """
+    screenshot_dir = "screenshots"
+    if not os.path.exists(screenshot_dir):
+        os.makedirs(screenshot_dir)
+
+def pytest_html_report_title(report):
+    report.title = "Manage Calendar"
+
+def pytest_html_results_table_header(cells):
+    cells.insert(2, "<th>Description</th>")
+    cells.insert(1, '<th class="sortable time" data-column-type="time">Time</th>')
+    cells.pop()
+
+def pytest_html_results_table_row(report, cells):
+    cells.insert(2, f"<td>{getattr(report, 'description', '')}</td>")
+    cells.insert(1, f'<td class="col-time">{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</td>')
+    cells.pop()
+
+
+# Remove the unused pytest_runtest_protocol hook if it was there

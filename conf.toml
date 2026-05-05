@@ -1,19 +1,18 @@
-[app]
-url = "https://app-fe-chatbot-qa-yr73-bxa2d9fsfshmf3c9.eastus2-01.azurewebsites.net/%20NIJC"
-name = "NIJC Chatbot"
-
 [admin]
-url = "https://uat-admin.azurehosted.app"
+url = "https://qa-admin.azurehosted.app"
 name = "NIJC Admin Portal"
+new_appointment_path = "/scheduling/new-appointment"
 
 [credentials]
 admin_email = "testqa@immigrantjustice.org"
 admin_password = "Debut@1234"
+user_email = "mosurub@gmail.com"
+user_password = "12345@Zaqq"
 aadmin_email = "vishal.singhal@immigrantjustice.org"
 aadmin_password = "Debut@123"
 
 [new_calendar]
-name = "automation test canlender"
+name = "My Test Calendar - Indiana"
 zip = "46204"
 address = "200 E Washington St"
 expected_state = "Indiana"
@@ -31,8 +30,49 @@ tea_break_from = "03:00 PM"
 tea_break_to = "03:15 PM"
 tea_break_name = "Tea Break"
 
+[invalid_address]
+# Used by TC_026 / TC_035 to verify booking is blocked when a user's or member's
+# address is moved to a non-serviceable region.
+state = "Alabama"
+zip = "35004"
+city = "Birmingham"
+street = "123 Main St"
+
 [playwright]
 browser = "chromium"
 headless = false
 viewport = { width = 1280, height = 720 }
 timeout = 30000
+[test_data]
+target_user = "Prabhat Gupta"
+reschedule_day = "27"
+reschedule_time = "01:00 PM"
+# Backwards date-range used by TC-CAL-043 to validate the form rejects from > to.
+# Keep `filter_date_from` LATER than `filter_date_to` — the test exercises the
+# invalid-range validation path.
+filter_date_from = "04/20/2026"
+filter_date_to = "04/10/2026"
+
+[secondary_location]
+# Used by manage-calendar tests that exercise a non-default office (Chicago, IL).
+zip = "60601"
+city = "Chicago"
+state = "Illinois"
+tz_short = "CST"
+address = "123 Test St"
+
+[new_user]
+first_name = "Automation"
+last_name = "User"
+# Date of birth is generated dynamically each run by _generate_random_dob.
+# These bounds keep the synthetic user an adult (> 18) while avoiding absurd ages.
+dob_min_age = 19
+dob_max_age = 60
+gender = "Cisgender Man"
+ineligible_user_email = "devtest201@yopmail.com"
+language = "English"
+state = "Indiana"
+city = "Indianapolis"
+zip = "46204"
+email = "automation_user@example.com"
+phone = "1234567890"

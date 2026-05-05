@@ -25,6 +25,19 @@ dashboard_menu = "//span[text()='Dashboard']"
 page_header = "//*[contains(@class,'MuiTypography-h3')]"
 add_new_calendar_btn = "//button[@id='add-calendar-btn']"
 search_input = "//input[@id='search_input']"
+session_expired_msg = "//*[contains(., 'session has expired')]"
+network_error_msg = "//*[contains(., 'network error')]"
+ui_option_all = "//li[@role='option']"
+date_picker_popper = ".MuiPickerPopper-paper"
+calendar_header_labels = ".MuiPickersCalendarHeader-labelContainer, .MuiPickersCalendarHeader-label, [role='presentation']"
+location_tab_btn = "//button[normalize-space()='{val}']"
+holiday_accordion_summary_all = "//div[contains(@class, 'MuiAccordionSummary-root')]"
+text_contains = "//*[contains(., '{text}')]"
+text_exact = "//*[text()='{text}']"
+holiday_date_range_match = "//*[contains(., '{start_str}')]//*[contains(., '{end_str}')] | //*[contains(., '{start_str}') and contains(., '{end_str}')]"
+holiday_list_rows = ".MuiGrid-container, .MuiStack-root, .MuiPaper-root, .MuiBox-root, [role='row']"
+back_button_mui = "//button[contains(@class, 'MuiIconButton-colorInfo') and .//*[local-name()='svg']]"
+# Fallback for the exact class provided by user if needed: "//button[@class='MuiButtonBase-root MuiIconButton-root MuiIconButton-colorInfo MuiIconButton-sizeMedium mui-v6vuyq']"
 
 # Dashboard page
 dashboard_welcome_text = "//*[contains(text(),'Welcome to NIJC Admin Portal')]"
@@ -51,8 +64,8 @@ table_header_services = "//th[normalize-space()='Services']"
 table_header_period = "//th[normalize-space()='Active Period']"
 
 # Table rows
-calendar_action_menu = "//tbody/tr[1]//button[contains(@aria-label,'more') or contains(@aria-label,'More') or contains(@class,'MuiIconButton')]"
-edit_option = "//li[normalize-space()='Edit']"
+calendar_action_menu = "//div[contains(@class,'MuiDataGrid-row')]//button[contains(@aria-label,'more') or contains(@class,'MuiIconButton')] | //tbody/tr[.//td]//button[contains(@aria-label,'more') or contains(@class,'MuiIconButton')]"
+edit_option = "//li[contains(normalize-space(), 'Edit') and not(contains(normalize-space(), 'Duplicate')) and not(contains(normalize-space(), 'Delete'))]"
 duplicate_option = "//p[text()='Duplicate']/ancestor::li | //li[normalize-space()='Duplicate']"
 delete_option = "//li[normalize-space()='Delete']"
 calendar_name_input = "//input[@id='calendar_name']"
@@ -64,6 +77,7 @@ activate_from_input = "//input[@name='activateFrom']"
 deactivate_from_input = "//input[@name='deactivateFrom']"
 services_input = "//input[@id='services']"
 service_zips_input = "//input[@id='service_zips']"
+calender_creation_succ_message = "//*[text()='Office configuration created successfully.']"
 operating_hours_from_input = "//input[@name='operatingFrom']"
 operating_hours_to_input = "//input[@name='operatingTo']"
 operating_hours_from_clock = "//span[@aria-label='2 hours'and text()='2']"
@@ -92,14 +106,16 @@ dialog_visible = "div[role='dialog']:visible, .MuiPickersPopper-root:visible, .M
 calendar_month_label = ".MuiPickersCalendarHeader-label"
 calendar_next_month_btn = "button[aria-label='Next month'], button[title='Next month']"
 calendar_prev_month_btn = "button[aria-label='Previous month'], button[title='Previous month']"
-ui_option = "//li[@role='option' and (normalize-space()='{val}' or .//text()='{val}')]"
+ui_option = "//li[@role='option' and (contains(normalize-space(), '{val}') or contains(., '{val}'))]"
 ui_gridcell = "//button[@role='gridcell' and normalize-space()='{val}']"
-update_configuration_btn = "//button[text()='Update Configuration' or text()='Save Configuration' or contains(., 'Update') or contains(., 'Save')]"
-add_scheduled_break_btn = "//button[contains(., 'Add Scheduled Break') or @id='add_scheduled' or @data-testid='qa-add-scheduled']"
+update_configuration_btn = "//button[normalize-space()='Update Configuration' or normalize-space()='Save Configuration' or normalize-space()='Proceed' or contains(., 'Update') or contains(., 'Save')]"
+add_scheduled_break_btn = "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'add scheduled break') or @id='add_scheduled' or contains(@id, 'add-scheduled-break') or @data-testid='qa-add-scheduled']"
 tea_break_from_input = "//input[@id='breaks.1.breakStart' or @name='breaks.1.breakStart']"
 tea_break_to_input = "//input[@id='breaks.1.breakEnd' or @name='breaks.1.breakEnd']"
 tea_break_name_input = "//input[@id='breaks.1.breakType' or @name='breaks.1.breakType']"
-scheduled_break_delete_btn = "//button[contains(translate(@aria-label,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), 'delete break') or @data-testid='delete-break']"
+scheduled_break_delete_btn = "//button[contains(@aria-label, 'delete') or .//*[local-name()='svg' and (contains(@data-testid, 'Delete') or contains(@class, 'Delete'))]]"
+confirmation_dialog = "//div[@role='dialog' or contains(@class, 'MuiDialog-root')]"
+confirm_delete_btn = "//button[contains(., 'Delete') or contains(., 'Confirm') or contains(., 'Yes')]"
 calendar_row_by_name = "//tr[.//td[contains(normalize-space(.), '{name}')]]"
 all_break_type_inputs = "//input[contains(@name,'breakType')]"
 all_break_start_inputs = "//input[contains(@name,'breakStart')]"
@@ -133,9 +149,9 @@ holiday_stat_total_blocked    = "//h6[contains(., 'Total Blocked days')]/precedi
 holiday_stat_federal          = "//h6[contains(., 'Federal Holidays')]/preceding-sibling::*[1]"
 holiday_stat_custom           = "//h6[contains(., 'Custom Holidays')]/preceding-sibling::*[1]"
 holiday_year_select           = "//input[@id='year-filter' or @name='year']"
-holiday_location_tab_all      = "//button[@aria-label='All Locations' or (@aria-pressed and contains(., 'All Locations'))]"
-holiday_location_tab_indiana  = "//button[@aria-label='Indiana' or (@value='Indiana' and contains(@class,'MuiToggleButton'))]"
-holiday_location_tab_illinois = "//button[@aria-label='Illinois' or (@value='Illinois' and contains(@class,'MuiToggleButton'))]"
+holiday_location_tab_all      = "//*[(self::button or @role='button') and (normalize-space()='All Locations' or contains(., 'All Locations'))]"
+holiday_location_tab_indiana  = "//*[(self::button or @role='button') and (normalize-space()='Indiana' or contains(., 'Indiana'))]"
+holiday_location_tab_illinois = "//*[(self::button or @role='button') and (normalize-space()='Illinois' or contains(., 'Illinois'))]"
 holiday_add_new_btn           = "//button[@id='add-new-holiday-btn' or contains(., 'Add New Holiday')]"
 holiday_import_btn           = "//button[@id='import-holidays-btn' or contains(., 'Import Holidays')]"
 holiday_custom_section        = "//*[self::h3 or self::h4 or self::h5 or self::h6 or contains(@class,'MuiTypography')][contains(., 'Custom Holidays')]"
@@ -143,7 +159,8 @@ holiday_federal_section       = "//*[self::h3 or self::h4 or self::h5 or self::h
 holiday_accordion_summary     = "//*[contains(@class,'MuiAccordionSummary-root') and (contains(., '{text}') or .//*[contains(., '{text}')])]"
 holiday_year_option           = "//li[@role='option' and (normalize-space()='{year}' or contains(., '{year}'))]"
 holiday_list_item             = "//*[contains(@class,'MuiAccordion-root') or contains(@class,'MuiPaper-root')]//*[contains(@class,'MuiTypography-root')]"
-holiday_modal_title = "//div[contains(@class, 'MuiDrawer-root')]//h1[text()='Add Custom Holiday']"
+holiday_row_all               = "//div[contains(@class, 'MuiGrid-container') or @role='row' or contains(@class, 'MuiStack-root')]"
+holiday_modal_title = "//div[contains(@class, 'MuiDrawer-root')]//h1"
 holiday_name_input            = "//div[contains(@class, 'MuiDrawer-root')]//input[@id='holiday_name']"
 holiday_start_date_input      = "//div[contains(@class, 'MuiDrawer-root')]//input[@name='startDate']"
 holiday_end_date_input        = "//div[contains(@class, 'MuiDrawer-root')]//input[@name='endDate']"
@@ -155,15 +172,19 @@ holiday_type_input            = "//div[contains(@class, 'MuiDrawer-root')]//inpu
 holiday_notes_input           = "//div[contains(@class, 'MuiDrawer-root')]//textarea[@name='notes']"
 holiday_submit_btn = "//div[contains(@class, 'MuiDrawer-root')]//button[@id='save']"
 holiday_cancel_btn = "//div[contains(@class, 'MuiDrawer-root')]//button[@id='cancel']"
-holiday_success_toast = "//li[@data-sonner-toast]//div[@data-title][text()='Holiday created successfully.']"
-holiday_exists_toast = "//div[text()='A holiday already exists for the specified time period.']"
+holiday_inline_error = "//div[contains(@class, 'MuiAlert-message') and contains(., 'already exists')]"
+holiday_success_toast = "//*[contains(., 'Holiday created successfully')]"
+holiday_exists_toast = "//*[contains(., 'already exists for the specified time period')]"
+holiday_import_success_toast = "//*[contains(., 'Holiday list imported successfully')]"
 holiday_close_toast_btn = "//button[@aria-label='Close toast']"
 holiday_upload_input = "//input[@type='file']"
 holiday_upload_submit_btn = "//button[text()='Upload' and not(@disabled)]"
+holiday_import_modal = "//div[@role='presentation' or contains(@class, 'MuiDialog-root')]//div[contains(@class, 'MuiDialog-paper')]"
 
 # Breadcrumbs
-breadcrumb_dashboard = "//nav[@data-testid='qa-manage-calendar-breadcrumbs' or @aria-label='breadcrumb']//a[text()='Dashboard']"
-breadcrumb_scheduling = "//nav[@data-testid='qa-manage-calendar-breadcrumbs' or @aria-label='breadcrumb']//a[text()='Scheduling']"
+breadcrumb_dashboard = "//nav[contains(@aria-label,'breadcrumb')]//a[contains(.,'Dashboard')]"
+breadcrumb_scheduling = "//nav[contains(@aria-label,'breadcrumb')]//a[normalize-space(.)='Scheduling']"
+breadcrumb_add_calendar = "//nav[contains(@aria-label,'breadcrumb')]//p[contains(.,'Add New Calendar')]"
 
 # Pagination
 pagination_rows_per_page_select = "//div[contains(@class, 'MuiTablePagination-select')]"
@@ -180,3 +201,360 @@ select_on_map_btn = "//button[@id='select-on-map']"
 map_select_location_btn = "//button[text()='Select this Location' or normalize-space()='Select this Location']"
 map_cancel_btn = "//button[text()='Cancel' or normalize-space()='Cancel']"
 map_dialog = "//div[@role='presentation']//div[contains(@class, 'MuiDialog-paper')]"
+
+[manage_calendar]
+# Validation Errors
+break_hour = "//input[@placeholder='hh:mm']"
+break_before_operating_hours_error = "//p[contains(@class, 'MuiFormHelperText-root') and (text()='Break times must be within operating hours') ]"   
+break_time_error = "//p[contains(@class, 'MuiFormHelperText-root') and (text()='Break end time must be after break start time') ]" 
+validation_error = "//span[contains(@class, 'MuiTypography-root') or contains(@class, 'MuiFormHelperText-root')]"
+name_error = "xpath=//p[@id='calendar_name-helper-text'] | //span[contains(@class, 'Mui-error') and preceding-sibling::*//input[@id='calendar_name']]"
+zip_error = "xpath=//p[@id='zipCode-helper-text'] | //span[contains(@class, 'MuiTypography-root') and contains(., 'ZipCode')]"
+zip_vilidation = "//div[text()='Enter a valid 5-digit zip code.']"
+activate_from_error = "//p[@id='activateFrom-helper-text'] | //span[contains(., 'at least 3 weeks')]"
+deactivate_from_error = "//p[@id='deactivateFrom-helper-text'] | //span[contains(@class, 'MuiTypography-root') and contains(., 'at least 3 weeks')]"
+operating_from_error = "//span[contains(@class, 'MuiTypography-root') and (contains(text(), 'Start time and end time cannot be the same'))]"
+operating_to_error = "//span[contains(@class, 'MuiTypography-root') and contains(text(), 'End time must be later than the start time')]"
+operating_hours_warning = "//span[contains(@class, 'MuiTypography-root') and (contains(text(), 'Start time and end time cannot be the same') or contains(text(), 'End time must be later than the start time'))]"
+break_start_error = "//*[contains(text(), 'Please enter start time')]"
+break_end_error = "//*[contains(text(), 'Please enter end time')]"
+service_error = "//p[@id='services-helper-text']"
+error_toast = "//div[contains(@class, 'data-title') and (contains(., 'could not be created') or contains(., 'Office'))]"
+admin_proceed_button = "//button[contains(., 'Proceed')]"
+save_calendar_btn = "//button[@id='save-calendar']"
+update_configuration_btn = "//button[contains(., 'Update Configuration')]"
+universal_success_toast = "//div[@data-title and (contains(., 'successfully') or contains(., 'saved'))]"
+calendar_name_input = "//input[@id='calendar_name']"
+zip_code_input = "//input[@id='zipCode']"
+address_input = "//input[@id='address']"
+services_input = "//input[@id='services']"
+operating_hours_from_input = "//input[@name='operatingFrom']"
+operating_hours_to_input = "//input[@name='operatingTo']"
+activate_from_input = "//input[@name='activateFrom']"
+deactivate_from_input = "//input[@name='deactivateFrom']"
+add_new_calendar_btn = "//button[contains(., 'Add New Calendar')]"
+ui_option = "//li[contains(., '{val}')]"
+ui_option_all = "//li"
+
+# Clock Picker
+am_period = "//*[contains(text(), 'AM')]"
+ok_button = "//button[contains(text(), 'OK')]"
+clock_picker = "//div[contains(@class, 'MuiPickersPopper-root') or @role='dialog' or contains(@class, 'MuiClock-root')]"
+progress_bar = "//div[@role='progressbar']"
+clock_icon_suffix = "/following-sibling::div//button"
+dialog_visible = "//div[@role='dialog']"
+clock_toolbar = "//div[contains(@class, 'MuiPickersToolbar-root')]"
+clock_face_unit = "xpath=.//span[(contains(@aria-label, '{val} {type}') or contains(@aria-label, '{val_padded} {type}')) and (text()='{val}' or text()='{val_padded}')]"
+clock_period_btn = "xpath=.//button[contains(@class, 'MuiPickersToolbarText-root') and (translate(text(), 'ampm', 'AMPM')='{period}')]"
+clock_dialog_ok_btn = "//button[contains(text(), 'OK')]"
+
+# Slot Generation
+generate_time_slots_btn = "//button[contains(., 'Generate Time Slots') or @id='generate_slots']"
+default_slots_btn = "//button[contains(., 'Default Slots') or contains(., 'reset')]"
+slot_row = "//tr[contains(@class, 'MuiTableRow-root')]"
+slot_time_text = "//tr[contains(@class, 'MuiTableRow-root')]//td[1]"
+slot_capacity_input = "//input[contains(@data-testid, 'per-day-slots') or contains(@id, 'perDaySlots')]"
+slot_capacity_minus_btn = "//div[contains(@data-testid, 'per-day-slots')]/preceding-sibling::button"
+slot_capacity_plus_btn = "//div[contains(@data-testid, 'per-day-slots')]/following-sibling::button"
+appt_per_slot_input = "//input[@id='appt_per_slot' or @name='appt_per_slot']"
+after_generate_slots_marker = "//tr[contains(@class, 'MuiTableRow-root')]"
+
+# Copy Configuration
+copy_config_section = "//h3[contains(., 'Copy Configuration')]"
+copy_next_day_btn = "//button[contains(., 'Next Day')] | //span[contains(text(), 'Next Day')]"
+copy_same_day_next_week_btn = "//button[contains(., 'Same Day Next Week')] | //span[contains(text(), 'Same Day Next Week')]"
+copy_all_weekdays_btn = "//button[contains(., 'All Weekdays in Current Week')] | //span[contains(text(), 'All Weekdays')]"
+copy_entire_month_btn = "//button[@value='entireMonth']"
+copy_next_3_months_btn = "//button[@value='next3Months']"
+copy_confirm_btn = "//button[contains(., 'Confirm') or contains(., 'Proceed')]"
+copy_calendar_btn = "//button[contains(., 'Copy Calendar')]"
+generate_new_slots_btn = "//button[contains(text(),'Generate New Slots')]"
+unsaved_changes_warning = "//*[contains(text(), 'unsaved changes') or contains(text(), 'Unsaved Changes')]"
+
+day_config_operating_from = "//input[@name='perDayOperatingFrom']"
+day_config_operating_to = "//input[@name='perDayOperatingTo']"
+day_config_save_btn = "//button[contains(., 'Save')]"
+day_config_delete_break_btn = "//button[contains(@aria-label, 'delete')]"
+
+# UI and State
+timezone_text = "//p[contains(text(), 'Timezone') or contains(@class, 'timezone')]"
+day_config_title = "//h2[contains(., 'Day Configuration')]"
+calendar_preview_heading = "//h2[contains(., 'Calendar Preview')]"
+calendar_open_day_chip = "//span[contains(@class, 'MuiChip-label') and contains(., 'Open')]"
+manage_calendar_row = "//tr[contains(@class, 'MuiTableRow-root')] | //div[contains(@class, 'MuiDataGrid-row')]"
+day_status_chip = "//span[contains(@class, 'MuiChip-label')]"
+inactive_toggle = "//span[contains(., 'Inactive')]/preceding-sibling::span//input[@type='checkbox']"
+view_only_overlay = "//*[contains(@class, 'view-only') or contains(@class, 'disabled-overlay')]"
+day_chip = "//span[contains(@class, 'MuiChip-label') and (text()='Open' or text()='Closed')]"
+slot_duration_dropdown = "//div[@data-testid='qa-per-day-slot-duration']//input"
+slot_duration_options = "//li[contains(@id, 'perDaySlotDuration-option-')]"
+day_chip_holiday = "//div[contains(@class, 'MuiBadge-root') and contains(., 'Holiday') or contains(@style, 'red')]"
+day_chip_inactive = "//div[contains(@class, 'MuiBadge-root') and contains(., 'Inactive')]"
+duplicate_success_toast = "//div[@data-title and (contains(., 'successfully') or contains(., 'No eligible target dates'))]"
+save_btn_disabled = "//button[contains(., 'Save') and @disabled]"
+generic_input_disabled = "//input[@disabled]"
+
+# Generic Markers
+text_marker = "//*[text()='{text}']"
+contains_text_marker = "//*[contains(text(), '{text}')]"
+duplicate_break_error = "//*[contains(text(), 'Duplicate break times not allowed')]"
+reserved_appt_warning = "//*[contains(text(), 'reserved appointments')]"
+operating_hours_label = "//label[contains(text(), 'Operating Hours')]"
+scroll_to_bottom_script = "window.scrollTo(0, document.body.scrollHeight)"
+horizontal_scroll_table_script = "document.querySelectorAll('.MuiDataGrid-virtualScroller, .MuiTableContainer-root').forEach(el => el.scrollLeft = 1000)"
+
+[user_dashboard]
+login_url = "https://qa-dashboard.azurehosted.app/login"
+email_input = "//input[@id='identifier']"
+password_input = "//input[@id='password']"
+login_btn = "//button[contains(., 'Login')]"
+success_toast = "//*[contains(text(), 'logged in successfully')]"
+new_appointment_btn = "//button[contains(., 'New Appointment')]"
+menu_new_appointment = "//span[contains(@class, 'MuiTypography-root') and text()='New Appointment']"
+service_dropdown = "//div[contains(@id, 'membersAndServices.0.services')]"
+service_option = "//li[contains(., '{service}')]"
+next_btn = "//button[@data-testid='qa-next']"
+office_selection_marker = "//*[contains(text(),'Please select one of the offices to book an appointment.')]"
+calendar_card = "(//h3[contains(text(), '{name}')]/ancestor::div[contains(@class, 'MuiCard-root')])[1]"
+date_picker_day = "//div[contains(@class, 'MuiGrid-item')]//p[text()='{day}']"
+date_picker_day_disabled = "//div[contains(@class, 'MuiGrid-item')][descendant::p[text()='{day}']]//div[not(contains(@style, 'background-color')) and not(contains(., 'Adjustment of Status'))]"
+calendar_name_text = "//h1"
+admin_calendar_name_input = "//input[@id='calendar_name']"
+update_configuration_btn = "//button[@id='save-changes']"
+status_dropdown = "//*[contains(@label, 'Status')]"
+status_option = "//li[text()='{status}' or contains(., '{status}')]"
+checkbox_member = "//input[@id='members_id']"
+calendar_preview_section = "//h2[contains(., 'Calendar Preview')]"
+inactive_status_toast = "//div[contains(text(),'Day configuration updated successully.')]"
+select_service ="//input[@id='membersAndServices']"
+update_spinner = "//span[contains(@class,'MuiButton-loadingIndicator mui-11vlmox')]"
+available_time_slots_header = "//h6[contains(.,'Available Time Slots')]//span[contains(.,'CST')]"
+time_slot_button_by_label = "//button[normalize-space()='{time}']"
+service_input = "//input[@placeholder='Service needed']"
+selected_date_label = "//h4[starts-with(normalize-space(), 'Selected Date:')] | //h5[starts-with(normalize-space(), 'Selected Date:')] | //h6[starts-with(normalize-space(), 'Selected Date:')] | //p[starts-with(normalize-space(), 'Selected Date:')]"
+unavailable_date_box_by_day = "//div[@status='unavailable' and .//h4[starts-with(normalize-space(), '{day}')]]"
+available_date_box_any = "(//div[@status='available' and (.//h4 or .//p)])[1]"
+
+[manage_appointment]
+# Sidebar and Tabs
+manage_appointments_menu = "xpath=//a[@href='/scheduling/manage-appointments']"
+list_view_tab = "xpath=//button[contains(., 'List View')]"
+calendar_view_tab = "xpath=//button[contains(., 'Calendar View')]"
+week_view_btn = "xpath=//button[contains(., 'Week')]"
+day_view_btn = "xpath=//button[contains(., 'Day')]"
+
+# Filters
+location_filter = "xpath=//div[contains(@id, 'location-filter')]"
+office_filter = "xpath=//div[contains(@id, 'office-filter')]"
+status_filter = "xpath=//div[contains(@id, 'status-filter')]"
+service_filter = "xpath=//div[contains(@id, 'service-filter')]"
+from_date_filter = "xpath=//input[@placeholder='From']"
+to_date_filter = "xpath=//input[@placeholder='To']"
+search_input_apt = "xpath=//input[@placeholder='Search by name']"
+
+# Table
+appointment_row = "xpath=//tr[contains(@class, 'MuiTableRow-root')]"
+status_cell = "xpath=.//td[7]" # Status is the 7th column
+action_menu_btn = "xpath=.//td[last()]//button"
+assigned_to_dropdown = "xpath=.//div[contains(@class, 'MuiSelect-select')]"
+
+# Action Menu Options
+approve_option = "xpath=//li[@role='menuitem' and .//p[text()='Approve']]"
+reject_option = "xpath=//li[@role='menuitem' and .//p[text()='Reject']]"
+reschedule_option = "xpath=//li[@role='menuitem' and .//p[text()='Reschedule']]"
+cancel_option = "xpath=//li[@role='menuitem' and .//p[text()='Cancel']]"
+notes_option = "xpath=//li[@role='menuitem' and .//p[text()='Notes']]"
+details_option = "xpath=//li[@role='menuitem' and .//p[text()='Details']]"
+
+# Dialogs and Drawers
+reject_dialog = "xpath=//div[@role='dialog' and .//*[contains(text(), 'Reject')]]"
+reject_reason_dropdown = "xpath=.//div[@id='reject_reason'] | .//input[@name='reason'] | .//div[contains(@id, 'reason')]"
+reject_note_textarea = "xpath=.//textarea[@name='rejectionNote'] | .//textarea[@name='note']"
+reject_submit_btn = "xpath=.//button[text()='Reject' or text()='Submit']"
+
+appointment_details_drawer = "xpath=//div[contains(@class, 'MuiDrawer-root') and .//*[contains(text(), 'Appointment Details')]]"
+drawer_approve_btn = "xpath=.//button[@id='approve_appointment']"
+drawer_reject_btn = "xpath=.//button[@id='reject_appointment']"
+drawer_reschedule_btn = "xpath=.//button[@id='reschedule_appointment']"
+drawer_cancel_btn = "xpath=//button[@id='cancel_appointment' and contains(., 'Cancel Appointment')]"
+
+reschedule_submit_btn = "xpath=//button[@id='submit' or contains(., 'Reschedule')]"
+success_toast = "xpath=//*[contains(translate(text(), 'SUCCESSFULLY', 'successfully'), 'successfully') or contains(text(), 'Approved') or contains(text(), 'Cancelled') or contains(text(), 'Canceled') or contains(text(), 'Saved') or contains(text(), 'created')]"
+confirm_dialog = "xpath=//div[@role='dialog' and .//*[contains(., 'Confirm')]]"
+confirm_yes_btn = "xpath=//button[contains(normalize-space(.), 'Yes')] | //button[contains(normalize-space(.), 'Confirm')] | //button[@id='submit'][contains(., 'Yes')] | //button[@data-testid='qa-submit']"
+reschedule_date_btn = "xpath=//p[text()='{day}']"
+available_time_slot = "xpath=//button[contains(@class, 'MuiButton-root') and (contains(., 'AM') or contains(., 'PM'))]"
+
+# Status filter on a row's status cell — accepts a parameterized status keyword
+appointment_status_cell_named = "xpath=.//td[contains(., '{status}')]"
+
+# Generic listbox option — first matching `<li role="option">` in any open dropdown
+listbox_option_first = "xpath=//li[@role='option']"
+
+# Parameterized matchers used by the action-menu visibility / stats-label checks
+menu_item_by_text = "xpath=//li[contains(., '{action}')]"
+any_element_with_text = "xpath=//*[contains(text(), \"{label}\")]"
+
+# MUI backdrop (used to dismiss open dialogs/menus)
+mui_backdrop_css = ".MuiBackdrop-root"
+
+# Stats Cards (Calendar View)
+stat_booked_this_week = "xpath=//h1[following-sibling::h6[contains(., 'Booked')]]"
+stat_today_appointments = "xpath=//h1[following-sibling::h6[contains(., \"Today's appointments\")]]"
+stat_open_slots = "xpath=//h1[following-sibling::h6[contains(., 'Open slots')]]"
+stat_fully_booked_slots = "xpath=//h1[following-sibling::h6[contains(., 'Fully booked')]]"
+
+[book_appointment]
+users_menu = "xpath=//a[@href='/management/users/list']"
+user_row = "xpath=//tbody/tr[contains(@class, 'MuiTableRow-root')]"
+user_name_cell = "xpath=.//td[1]//p[1]"
+user_action_btn = "xpath=.//td[last()]//button"
+book_appointment_option = "xpath=//li[contains(., 'Book Appointment')]"
+view_profile_option = "xpath=//li[contains(@role, 'menuitem') and .//text()='View']"
+search_input_user = "xpath=//input[@id='search_input']"
+
+# Status Indicators
+status_eligible = "xpath=//td[contains(., 'Eligible')]"
+status_ineligible = "xpath=.//td[contains(., 'Ineligible')] | .//p[contains(text(),'Ineligible')]"
+status_expired = "xpath=//td[contains(., 'Expired')]"
+status_pending = "xpath=//td[contains(., 'Pending')]"
+status_inactive = "xpath=//td[contains(., 'Inactive')]"
+
+# Profile Tabs
+profile_details_tab = "xpath=//button[contains(., 'User Details')]"
+profile_household_tab = "xpath=//button[contains(., 'Household Members')]"
+profile_appointments_tab = "xpath=//button[contains(., 'Appointments')]"
+profile_edit_info_btn = "xpath=//button[contains(., 'Edit User Info')]"
+member_row = "xpath=//tbody//tr[contains(@class, 'MuiTableRow-root')]"
+member_action_btn = "xpath=.//td[last()]//button"
+member_name_cell = "xpath=(.//td[2]//span)[1]"
+member_view_option = "xpath=//li[@role='menuitem']//p[text()='View']"
+member_edit_option = "xpath=//li[@role='menuitem']//p[text()='Edit']"
+member_book_option = "xpath=//li[@role='menuitem']//p[text()='Book Appointment']"
+member_delete_option = "xpath=//li[@role='menuitem']//p[text()='Delete']"
+
+# Edit User Info / Eligibility
+eligibility_questions_tab = "xpath=//button[contains(., 'Eligibility Questions')]"
+eligibility_form_container = "xpath=//div[contains(@class, 'MuiBox-root') and .//h6[contains(., 'Eligibility')]]"
+eligibility_q2_no = "xpath=//*[contains(text(), 'live in the household with you')]/following::span[text()='No'][1]"
+confirm_inactivation_btn = "xpath=//*[@id='confirm-existing-member-button']"
+cancel_existing_member_btn = "xpath=//*[@id='cancel-existing-member-button']"
+existing_member_warning_dialog = "xpath=//*[@id='existing-member-warning-dialog']"
+success_toast = "xpath=//*[contains(text(), 'updated successfully')]"
+
+# Appointments Tab
+appointment_status_chip = "xpath=//span[contains(@class, 'MuiChip-label')]"
+appointment_view_btn = "xpath=//button[contains(., 'View')]"
+
+review_requests_header = "xpath=//*[contains(text(), 'Review Requests')]"
+booking_final_book_btn = "xpath=//button[@id='book_appointment' or contains(., 'Book Appointment')]"
+
+# Booking Screen (Admin Side)
+booking_container = "xpath=//div[contains(@class, 'MuiContainer-root')]"
+member_selection_checkbox = "xpath=//input[@id='members_id' or @name='members']"
+member_checkbox_by_name = "xpath=//div[contains(@class, 'MuiGrid-container') and .//*[contains(normalize-space(), '{name}')]]//input[@type='checkbox']"
+service_dropdown_by_member = "xpath=//div[contains(@class, 'MuiGrid-item') and .//*[contains(normalize-space(), '{name}')]]/following-sibling::div//div[@role='button' or contains(@id, 'mui-component-select-membersAndServices')]"
+service_needed_dropdown = "xpath=//*[@id='membersAndServices'] | //div[contains(@id, 'service_id')] | //div[@role='combobox']"
+booking_next_btn = "xpath=//button[contains(., 'Next')]"
+booking_reschedule_btn = "xpath=//button[contains(., 'Reschedule')]"
+booking_cancel_btn = "xpath=//button[contains(., 'Cancel')]"
+view_mode_marker = "xpath=//*[contains(text(), '2026') or contains(text(), 'Existing Appointment')]"
+address_error_msg = "xpath=//*[contains(text(), 'Invalid Address') or contains(text(), 'address validation')]"
+duplicate_error_msg = "xpath=//*[contains(text(), 'already has an open appointment') or contains(text(), 'Duplicate')]"
+office_card = "xpath=//h3[contains(., '{name}')]/ancestor::div[contains(@class, 'MuiCard-root')]"
+appointment_success_dialog = "xpath=//*[@id='appointment_confirmation']"
+go_to_manage_appts_btn = "xpath=//*[@id='go_to_manage_appointment']"
+service_option = "xpath=//li[contains(., '{service}')]"
+go_to_manage_appt = "xpath=//button[contains(text(),'Go to Manage Appointments')]"
+
+# Checkbox row selectors (booking member-selection screen)
+mui_checkbox_spans         = "xpath=//span[contains(@class,'MuiCheckbox-root')]"
+mui_checkbox_enabled       = "xpath=//span[contains(@class,'MuiCheckbox-root') and not(contains(@class,'Mui-disabled'))]"
+
+# Service dropdown inputs (booking member-selection screen)
+service_needed_input         = "xpath=//input[@placeholder='Service needed']"
+service_needed_input_enabled = "xpath=//input[@placeholder='Service needed' and not(@disabled)]"
+
+# Generic listbox / option selectors
+listbox        = "xpath=//ul[@role='listbox'] | //div[@role='listbox']"
+listbox_option = "xpath=//ul[@role='listbox']//li | //li[@role='option']"
+# Listbox option matched by visible text (use `.format(text=...)` at the call site)
+listbox_option_named = "xpath=//li[@role='option' and normalize-space(.)='{text}']"
+
+# Edit option in a primary user's actions menu (member edit uses member_edit_option)
+user_edit_option = "xpath=//li[@role='menuitem' and normalize-space(.)='Edit']"
+
+# City input fallback — used by household-member edit form where the input has no
+# stable id; matches by the 'City' label that immediately precedes it.
+city_input_label_following = "xpath=//*[normalize-space()='City']/following::input[1]"
+# booking_member_tab = "xpath=(//div[contains(@class,'MuiGrid-grid-md-4')][{idx}]//h4[contains(text(), '{name}')]"
+booking_member_tab = "//div[contains(@class,'MuiGrid-grid-md-4')][{idx}]//h4[contains(normalize-space(.), '{name}')]"
+
+                    
+
+
+
+
+# Office selection (any card, when named card not found)
+office_card_any = "xpath=//div[contains(@class,'MuiCard-root')]"
+
+# Date picker — custom weekly grid (NOT MuiPickersDay)
+booking_date_btn           = "xpath=//p[text()='{day}']/parent::div[.//span]"
+booking_date_any_available = "xpath=//div[.//p[normalize-space()!=''] and .//span[string-length(normalize-space())>0]][not(contains(@class,'Mui-disabled')) and not(@aria-disabled='true')]"
+
+# Member Book Appointment <li> element (carries aria-disabled, not the inner <p>)
+member_book_li = "xpath=//li[@role='menuitem' and .//p[text()='Book Appointment']]"
+
+# MUI backdrop (dismiss open menus before clicking)
+mui_backdrop = ".MuiBackdrop-root, .MuiModal-backdrop"
+
+
+[user_management]
+add_new_user_btn = "xpath=//button[contains(., 'Add New Users')]"
+first_name_input = "xpath=//input[@id='first_name']"
+middle_name_input = "xpath=//input[@id='middle_name']"
+last_name_input = "xpath=//input[@id='last_name']"
+dob_month = "xpath=//span[@aria-label='Month']"
+dob_day = "xpath=//span[@aria-label='Day']"
+dob_year = "xpath=//span[@aria-label='Year']"
+gender_input = "xpath=//input[@id='gender_identity']"
+language_input = "xpath=//input[@id='language']"
+street_address_input = "xpath=//input[@id='street_address']"
+apt_input = "xpath=//input[@id='apt_building']"
+state_input = "xpath=//input[@id='state']"
+city_input = "xpath=//label[text()='City']/following-sibling::div//input"
+zip_code_input = "xpath=//input[@id='zip_code']"
+email_input = "xpath=//input[@id='email_address']"
+phone_input = "xpath=//input[@id='phone_number']"
+user_save_btn = "xpath=//button[@id='submit']"
+user_cancel_btn = "xpath=//button[@id='cancel']"
+send_email_checkbox = "xpath=//input[@id='share_credentials_method_0']"
+gender_option = "xpath=//li[@role='option' and .//text()='{gender}']"
+status_ineligible = "xpath=.//p[contains(text(),'Ineligible')]"
+status_pending = "xpath=.//span[contains(@class, 'MuiChip-label') and text()='Pending']"
+status_approved = "xpath=.//span[contains(@class, 'MuiChip-label') and text()='Approved']"
+status_inactive = "xpath=.//span[contains(@class, 'MuiChip-label') and text()='Inactive']"
+search_input_user = "xpath=//input[@id='search_input']"
+user_action_btn = "xpath=.//button[contains(@aria-label, 'Action') or contains(@class, 'MuiButton-root') or contains(@class, 'MuiIconButton-root')]"
+book_appointment_option = "xpath=//li[contains(., 'Book Appointment')]"
+
+
+[household_member]
+first_name_input = "xpath=//input[@id='first_name']"
+last_name_input = "xpath=//input[@id='last_name']"
+dob_month_input = "xpath=//input[contains(@id,'-month') or @placeholder='MM']"
+dob_day_input   = "xpath=//input[contains(@id,'-day')   or @placeholder='DD']"
+dob_year_input  = "xpath=//input[contains(@id,'-year')  or @placeholder='YYYY']"
+dob_container = "xpath=//div[contains(@class, 'MuiPickersInputBase-sectionsContainer')]"
+relation_input  = "xpath=//input[@id='relation_to_you']"
+
+gender_input    = "xpath=//input[@id='gender_identity']"
+same_address_yes = "xpath=//input[@name='isSameAddress' and @value='true']"
+same_email_label = "xpath=//label[contains(.,'Same as primary user')]"
+save_btn = "xpath=//button[@id='submit'] | //button[contains(.,'Save')]"
+
+[eligibility_questions]
+eligibility_header_text = "xpath=//*[contains(text(), 'As a non profit organization')]"
+cancel_btn = "xpath=//button[text()='Cancel']"
+
+
