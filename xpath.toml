@@ -28,7 +28,9 @@ search_input = "//input[@id='search_input']"
 session_expired_msg = "//*[contains(., 'session has expired')]"
 network_error_msg = "//*[contains(., 'network error')]"
 ui_option_all = "//li[@role='option']"
-date_picker_popper = ".MuiPickerPopper-paper"
+# MUI X DatePicker popper — in this build the holiday-form picker renders as
+# a [role="dialog"], so cover both popper and dialog forms.
+date_picker_popper = "css=.MuiPickerPopper-paper, .MuiPickersPopper-root, [role='dialog']:has(.MuiPickersCalendarHeader-root), [role='dialog']:has(div[role='grid'])"
 calendar_header_labels = ".MuiPickersCalendarHeader-labelContainer, .MuiPickersCalendarHeader-label, [role='presentation']"
 location_tab_btn = "//button[normalize-space()='{val}']"
 holiday_accordion_summary_all = "//div[contains(@class, 'MuiAccordionSummary-root')]"
@@ -77,7 +79,7 @@ activate_from_input = "//input[@name='activateFrom']"
 deactivate_from_input = "//input[@name='deactivateFrom']"
 services_input = "//input[@id='services']"
 service_zips_input = "//input[@id='service_zips']"
-calender_creation_succ_message = "//*[text()='Office configuration created successfully.']"
+calender_creation_succ_message = "//div[@data-title and contains(normalize-space(.), 'Office configuration created')]"
 operating_hours_from_input = "//input[@name='operatingFrom']"
 operating_hours_to_input = "//input[@name='operatingTo']"
 operating_hours_from_clock = "//span[@aria-label='2 hours'and text()='2']"
@@ -211,10 +213,11 @@ validation_error = "//span[contains(@class, 'MuiTypography-root') or contains(@c
 name_error = "xpath=//p[@id='calendar_name-helper-text'] | //span[contains(@class, 'Mui-error') and preceding-sibling::*//input[@id='calendar_name']]"
 zip_error = "xpath=//p[@id='zipCode-helper-text'] | //span[contains(@class, 'MuiTypography-root') and contains(., 'ZipCode')]"
 zip_vilidation = "//div[text()='Enter a valid 5-digit zip code.']"
+zip_validation = "//div[text()='Enter a valid 5-digit zip code.'] | //p[@id='zipCode-helper-text' and contains(., 'valid 5-digit')]"
 activate_from_error = "//p[@id='activateFrom-helper-text'] | //span[contains(., 'at least 3 weeks')]"
 deactivate_from_error = "//p[@id='deactivateFrom-helper-text'] | //span[contains(@class, 'MuiTypography-root') and contains(., 'at least 3 weeks')]"
-operating_from_error = "//span[contains(@class, 'MuiTypography-root') and (contains(text(), 'Start time and end time cannot be the same'))]"
-operating_to_error = "//span[contains(@class, 'MuiTypography-root') and contains(text(), 'End time must be later than the start time')]"
+operating_from_error = "//p[contains(text(),'Start time and end time cannot be the same')] | //span[contains(text(), 'Start time and end time cannot be the same')]"
+operating_to_error = "//p[contains(text(),'End time must be after start time')] | //p[contains(text(),'End time must be later than the start time')] | //span[contains(text(), 'End time must be')]"
 operating_hours_warning = "//span[contains(@class, 'MuiTypography-root') and (contains(text(), 'Start time and end time cannot be the same') or contains(text(), 'End time must be later than the start time'))]"
 break_start_error = "//*[contains(text(), 'Please enter start time')]"
 break_end_error = "//*[contains(text(), 'Please enter end time')]"
@@ -222,7 +225,13 @@ service_error = "//p[@id='services-helper-text']"
 error_toast = "//div[contains(@class, 'data-title') and (contains(., 'could not be created') or contains(., 'Office'))]"
 admin_proceed_button = "//button[contains(., 'Proceed')]"
 save_calendar_btn = "//button[@id='save-calendar']"
-update_configuration_btn = "//button[contains(., 'Update Configuration')]"
+# Save/Proceed button on Add (Proceed) and Edit (Update Configuration) pages.
+# Scoped to type='submit' so we don't pick up unrelated buttons.
+# Save/Proceed button on Add and Edit calendar pages. Prefer the stable
+# test-id (`qa-apply-to-all`) which the React form preserves across
+# re-renders — text-only locators detach when validation re-renders the
+# button and Playwright sees "element was detached from DOM" timeouts.
+update_configuration_btn = "//button[@data-testid='qa-apply-to-all' or @id='apply_to_all' or (@type='submit' and (contains(., 'Update Configuration') or contains(., 'Save Configuration') or contains(., 'Proceed')))]"
 universal_success_toast = "//div[@data-title and (contains(., 'successfully') or contains(., 'saved'))]"
 calendar_name_input = "//input[@id='calendar_name']"
 zip_code_input = "//input[@id='zipCode']"
@@ -233,20 +242,48 @@ operating_hours_to_input = "//input[@name='operatingTo']"
 activate_from_input = "//input[@name='activateFrom']"
 deactivate_from_input = "//input[@name='deactivateFrom']"
 add_new_calendar_btn = "//button[contains(., 'Add New Calendar')]"
-ui_option = "//li[contains(., '{val}')]"
-ui_option_all = "//li"
+ui_option = "//li[@role='option' and contains(., '{val}')] | //li[contains(@class,'MuiMenuItem-root') and contains(., '{val}')] | //li[@role='menuitem' and contains(., '{val}')]"
+# IMPORTANT: scope to listbox/menu options so `//li` doesn't accidentally
+# pick up sidebar nav items like "Dashboard" (a `.first` click on a generic
+# //li was navigating tests off the form to /dashboard).
+ui_option_all = "//li[@role='option'] | //li[contains(@class,'MuiMenuItem-root')] | //li[@role='menuitem']"
+
+# Day-config drawer break inputs (inside the per-day configuration sub-page
+# opened from the Calendar Preview). The break inputs use the same
+# breaks.{N}.* naming as the main form, but live inside the day-config
+# drawer/section — relax the selectors to match either context.
+day_config_break_type_input = "//input[contains(@name,'breakType')]"
+day_config_break_type = "//input[contains(@name,'breakType')]"
+day_config_break_start_input = "//input[contains(@name,'breakStart')]"
+day_config_break_end_input = "//input[contains(@name,'breakEnd')]"
+
+# Add-Scheduled-Break button within the day-config drawer (different DOM
+# subtree from the main form's Add Scheduled Break, but same label).
+add_scheduled_configuration_btn = "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'add scheduled break')]"
+
+# Timezone abbreviation rendered as plain text in the form (e.g. 'EST', 'CST').
+# Template — caller substitutes {tz}.
+timezone_in_form = "//*[normalize-space(text())='{tz}' or contains(text(), '({tz})')]"
 
 # Clock Picker
 am_period = "//*[contains(text(), 'AM')]"
 ok_button = "//button[contains(text(), 'OK')]"
 clock_picker = "//div[contains(@class, 'MuiPickersPopper-root') or @role='dialog' or contains(@class, 'MuiClock-root')]"
-progress_bar = "//div[@role='progressbar']"
 clock_icon_suffix = "/following-sibling::div//button"
 dialog_visible = "//div[@role='dialog']"
 clock_toolbar = "//div[contains(@class, 'MuiPickersToolbar-root')]"
 clock_face_unit = "xpath=.//span[(contains(@aria-label, '{val} {type}') or contains(@aria-label, '{val_padded} {type}')) and (text()='{val}' or text()='{val_padded}')]"
-clock_period_btn = "xpath=.//button[contains(@class, 'MuiPickersToolbarText-root') and (translate(text(), 'ampm', 'AMPM')='{period}')]"
+# AM/PM toggle on the clock face — current MUI build renders them as plain
+# <button> elements with just 'AM'/'PM' text (no MuiPickersToolbarText class,
+# no toolbar). Match by normalized text so the period click actually fires.
+clock_period_btn = "xpath=.//button[normalize-space(.)='{period}']"
 clock_dialog_ok_btn = "//button[contains(text(), 'OK')]"
+
+# Progress bar overlay: this app uses the NIJC logo SVG as a loading
+# indicator (no role='progressbar' on the actual overlay) — match by the
+# logo img's parent div so the `while pb.is_visible(): ...` waits actually
+# block until the save/load finishes.
+progress_bar = "//img[contains(@src,'NIJC_logo.svg')]/parent::div | //div[@role='progressbar']"
 
 # Slot Generation
 generate_time_slots_btn = "//button[contains(., 'Generate Time Slots') or @id='generate_slots']"
@@ -285,7 +322,9 @@ manage_calendar_row = "//tr[contains(@class, 'MuiTableRow-root')] | //div[contai
 day_status_chip = "//span[contains(@class, 'MuiChip-label')]"
 inactive_toggle = "//span[contains(., 'Inactive')]/preceding-sibling::span//input[@type='checkbox']"
 view_only_overlay = "//*[contains(@class, 'view-only') or contains(@class, 'disabled-overlay')]"
-day_chip = "//span[contains(@class, 'MuiChip-label') and (text()='Open' or text()='Closed')]"
+# Day chip in Calendar Preview — text is rendered as '● Open' / '● Closed'
+# with a bullet glyph, so use contains() rather than exact text() match.
+day_chip = "//span[contains(@class, 'MuiChip-label') and (contains(., 'Open') or contains(., 'Closed'))]"
 slot_duration_dropdown = "//div[@data-testid='qa-per-day-slot-duration']//input"
 slot_duration_options = "//li[contains(@id, 'perDaySlotDuration-option-')]"
 day_chip_holiday = "//div[contains(@class, 'MuiBadge-root') and contains(., 'Holiday') or contains(@style, 'red')]"
@@ -343,11 +382,16 @@ calendar_view_tab = "xpath=//button[contains(., 'Calendar View')]"
 week_view_btn = "xpath=//button[contains(., 'Week')]"
 day_view_btn = "xpath=//button[contains(., 'Day')]"
 
-# Filters
-location_filter = "xpath=//div[contains(@id, 'location-filter')]"
-office_filter = "xpath=//div[contains(@id, 'office-filter')]"
-status_filter = "xpath=//div[contains(@id, 'status-filter')]"
-service_filter = "xpath=//div[contains(@id, 'service-filter')]"
+# Filters — IDs confirmed via direct DOM inspection 2026-05-15.
+# - location-filter: <input> wrapped in MuiAutocomplete-root
+# - office-filter, status-filter: <div role="combobox">
+# - service-types-filter: <input> wrapped in MuiAutocomplete-root
+# For the <input>-based filters, click the wrapping autocomplete root
+# (clicking the <input> itself sometimes races with overlays).
+location_filter = "xpath=//*[@id='location-filter']/ancestor::div[contains(@class,'MuiAutocomplete-root')][1]"
+office_filter = "xpath=//div[@id='office-filter']"
+status_filter = "xpath=//div[@id='status-filter']"
+service_filter = "xpath=//*[@id='service-types-filter']/ancestor::div[contains(@class,'MuiAutocomplete-root')][1]"
 from_date_filter = "xpath=//input[@placeholder='From']"
 to_date_filter = "xpath=//input[@placeholder='To']"
 search_input_apt = "xpath=//input[@placeholder='Search by name']"
@@ -356,7 +400,11 @@ search_input_apt = "xpath=//input[@placeholder='Search by name']"
 appointment_row = "xpath=//tr[contains(@class, 'MuiTableRow-root')]"
 status_cell = "xpath=.//td[7]" # Status is the 7th column
 action_menu_btn = "xpath=.//td[last()]//button"
-assigned_to_dropdown = "xpath=.//div[contains(@class, 'MuiSelect-select')]"
+assigned_to_dropdown = "xpath=.//input[@placeholder='Select assignee'] | .//div[contains(@class, 'MuiAutocomplete-root')] | .//div[contains(@class, 'MuiSelect-select')]"
+# Wrapper used to read the dropdown's aria-disabled state (autocomplete root)
+assigned_to_wrapper = "xpath=.//div[contains(@class, 'MuiAutocomplete-root')]"
+# Assignee dropdown options — rendered as <li role='menuitem'> in a portal
+assignee_option_first = "xpath=//li[@role='menuitem' and contains(@class, 'MuiMenuItem-root')]"
 
 # Action Menu Options
 approve_option = "xpath=//li[@role='menuitem' and .//p[text()='Approve']]"
@@ -373,6 +421,44 @@ reject_note_textarea = "xpath=.//textarea[@name='rejectionNote'] | .//textarea[@
 reject_submit_btn = "xpath=.//button[text()='Reject' or text()='Submit']"
 
 appointment_details_drawer = "xpath=//div[contains(@class, 'MuiDrawer-root') and .//*[contains(text(), 'Appointment Details')]]"
+
+# Notes dialog (opened from action-menu → Notes). The dialog renders the
+# textarea directly — there is no separate 'Add Note' button. The save
+# button is labelled 'Save Note' and has id='confirm-button'.
+notes_dialog = "xpath=//div[@role='dialog' and .//*[contains(text(), 'Internal Notes')]]"
+note_textarea = "xpath=.//textarea[@name='note' or @placeholder='Type your notes here...']"
+save_note_btn = "xpath=.//button[@id='confirm-button' or normalize-space(.)='Save Note']"
+note_validation_error = "xpath=//*[contains(@class,'MuiFormHelperText-root') and contains(text(),'required') or contains(text(),'max') or contains(text(),'500') or contains(text(),'cannot exceed')]"
+reject_validation_error = "xpath=//*[contains(@class,'MuiFormHelperText-root') and (contains(text(),'required') or contains(text(),'reason') or contains(text(),'max') or contains(text(),'cannot exceed'))]"
+
+# Specific Internal-Notes dialog validation errors (exact text observed in
+# this build — kept here so a UI copy-change is a one-line update).
+note_required_error = "xpath=//p[normalize-space()='Note is required']"
+note_over_limit_error = "xpath=//p[normalize-space()='Note cannot exceed {max} characters']"
+
+# Internal-Notes dialog body markers
+notes_no_notes_msg = "xpath=//*[normalize-space()='No notes available']"
+
+# Specific over-limit error copy displayed by the Reject/Note dialogs
+# (parameterized by the configured max — default 500).
+note_max_length_error = "xpath=//p[text()='Note cannot exceed {max} characters']"
+
+# Generic 'Cancel' button used inside dialogs to dismiss them
+dialog_cancel_btn = "xpath=//button[normalize-space(.)='Cancel']"
+
+# 'Missing Slot Selection / Please select an office' guard dialog that the
+# booking flow surfaces if Next is clicked before an office card is selected.
+missing_slot_modal = "xpath=//*[contains(normalize-space(.), 'Missing Slot Selection') or contains(normalize-space(.), 'Please select an office')]"
+missing_slot_modal_cancel_btn = "xpath=//div[@role='dialog']//button[normalize-space(.)='Cancel']"
+
+# Top-level appointments table + calendar grid container.
+# `calendar_grid_root` matches the SLOT header text rendered by the custom
+# week-view grid (this app doesn't use react-big-calendar).
+appointments_table = "css=table"
+calendar_grid_root = "xpath=//*[normalize-space(.)='SLOT']"
+
+# 'Select assignee' placeholder shown when an appointment has no assignee
+assignee_placeholder_text = "Select assignee"
 drawer_approve_btn = "xpath=.//button[@id='approve_appointment']"
 drawer_reject_btn = "xpath=.//button[@id='reject_appointment']"
 drawer_reschedule_btn = "xpath=.//button[@id='reschedule_appointment']"
@@ -397,6 +483,90 @@ any_element_with_text = "xpath=//*[contains(text(), \"{label}\")]"
 
 # MUI backdrop (used to dismiss open dialogs/menus)
 mui_backdrop_css = ".MuiBackdrop-root"
+
+# Status filter dropdown (combobox + parameterized option lookup)
+status_filter_combobox = "#status-filter"
+listbox_option_named_exact = "xpath=//li[@role='option' and normalize-space()='{name}']"
+status_option_all = "xpath=//li[@role='option' and normalize-space()='All Statuses']"
+status_option_canceled_business = "xpath=//li[@role='option' and normalize-space()='Canceled (Business)']"
+
+# Date range inputs in the appointments toolbar (CSS — placeholders are stable)
+date_filter_from_input_css = "input[placeholder=\"From\"]"
+date_filter_to_input_css   = "input[placeholder=\"To\"]"
+
+# Reset button on the appointments toolbar — wipes all filters back to default
+reset_filters_btn = "css=#reset-filters-btn"
+
+# Tbody-scoped appointment row (tighter than appointment_row; excludes header)
+tbody_appointment_row = "css=tbody tr.MuiTableRow-root"
+
+# Empty-state marker rendered inside the table when search / filters
+# yield no results. Stable testid: data-testid="qa-no-records-found";
+# also has id="no_records_found".
+no_records_found = "css=[data-testid='qa-no-records-found'], #no_records_found"
+
+# Reschedule date-picker tiles
+reschedule_available_date = "css=div[status='available']"
+reschedule_unavailable_date = "css=div[status='unavailable']"
+
+# Generic disabled-attribute filter (used with .filter(has_not=…))
+disabled_attr = "css=[disabled]"
+
+# Reschedule / booking submit button
+qa_submit_btn = "css=button[data-testid='qa-submit']"
+
+# Pagination next-page button
+pagination_next_btn = "xpath=//button[@aria-label='Go to next page']"
+
+# "Cancel" item in the row's action-menu popover
+action_menu_btn_last_cell = "css=td:last-child button"
+
+# Manage Appointments: cells of an `appointment_row` (relative XPaths, 1-indexed)
+# Column order: 1=Name, 2=Primary Member, 3=Language, 4=Date & Time,
+#               5=Services, 6=Assigned To, 7=Status, 8=Actions
+appt_cell_primary_member = "xpath=./td[2]"
+appt_cell_datetime       = "xpath=./td[4]"
+appt_cell_status         = "xpath=./td[7]"
+
+# Users list: cell holding the Household Members count (relative XPath, 1-indexed)
+user_cell_household_count = "xpath=./td[3]"
+
+# Generic wait helpers used by self-sufficient TC_50+ flows
+tbody_tr_simple = "css=tbody tr"
+body_root = "css=body"
+
+# HH member edit form: 'Eligibility Criteria' section header + Yes/No radio spans
+eligibility_criteria_text = "text=Eligibility Criteria"
+eligibility_yes_no_span = "xpath=//span[normalize-space()='Yes' or normalize-space()='No']"
+
+# Common DOM building blocks reused across booking/profile screens
+mui_grid_container         = "css=.MuiGrid-container"
+mui_grid_with_checkbox     = "css=.MuiGrid-container:has(input[type=\"checkbox\"])"
+mui_grid_md_4_by_idx       = "xpath=//div[contains(@class,'MuiGrid-grid-md-4')][{idx}]"
+checkbox_input             = "css=input[type=\"checkbox\"]"
+radio_input                = "css=input[type=\"radio\"]"
+combobox_role              = "css=[role=\"combobox\"]"
+combobox_role_not_disabled = "css=[role=\"combobox\"]:not([disabled])"
+parent_xpath               = "xpath=parent::*"
+
+# Profile / Users-list cells (relative)
+user_cell_email_p          = "xpath=./td[1]//p[2]"
+
+# Same-address radio group on the household-member edit form
+qa_is_same_address_radios  = "css=[data-testid=\"qa-is-same-address\"] input[type=\"radio\"]"
+
+# Test-id-based eligibility radio groups (member edit form)
+qa_is_live_with_you_testid = "qa-is-live-with-you"
+qa_is_any_adult_testid     = "qa-is-any-adult"
+
+# Eligibility Q2 ('live in the household with you') 'No' radio — primary xpath
+eligibility_q2_no_primary  = "xpath=//*[contains(normalize-space(.), 'live in the household with you')]/ancestor::*[self::div][1]//input[@type='radio' and @value='No' or @aria-label='No']"
+
+# Member-card tab on the booking review screen (parameterized by member name)
+booking_member_card_by_name = "xpath=//div[contains(@class, 'MuiGrid-grid-md-4') and .//h4[contains(normalize-space(.), '{name}')]]"
+
+# Listbox option matched by partial-text contains (parameterized by name)
+listbox_option_named_contains = "xpath=//li[@role='option' and contains(normalize-space(.), '{name}')]"
 
 # Stats Cards (Calendar View)
 stat_booked_this_week = "xpath=//h1[following-sibling::h6[contains(., 'Booked')]]"

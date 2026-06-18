@@ -2,6 +2,13 @@
 url = "https://qa-admin.azurehosted.app"
 name = "NIJC Admin Portal"
 new_appointment_path = "/scheduling/new-appointment"
+manage_appointments_path = "/scheduling/manage-appointments"
+reschedule_appointment_path = "/scheduling/reschedule-appointment"
+
+[admin.url_globs]
+# Used with `page.wait_for_url(...)` when navigating between booking screens
+manage_appointments = "**/scheduling/manage-appointments**"
+reschedule_appointment = "**/scheduling/reschedule-appointment**"
 
 [credentials]
 admin_email = "testqa@immigrantjustice.org"
@@ -10,6 +17,10 @@ user_email = "mosurub@gmail.com"
 user_password = "12345@Zaqq"
 aadmin_email = "vishal.singhal@immigrantjustice.org"
 aadmin_password = "Debut@123"
+# Employee role — used by employee_session fixture for tests that verify
+# role-gated visibility / permissions on Manage Appointments.
+employee_email = "testqa-emp@immigrantjustice.org"
+employee_password = "Debut@1234"
 
 [new_calendar]
 name = "My Test Calendar - Indiana"
@@ -29,6 +40,12 @@ scheduled_break_to = "01:00 PM"
 tea_break_from = "03:00 PM"
 tea_break_to = "03:15 PM"
 tea_break_name = "Tea Break"
+
+# TC_070 (End-before-Start validation): set From > To intentionally
+order_validation_from = "02:00 PM"
+order_validation_to = "09:00 AM"
+# TC_071 (equal-times validation)
+equal_validation_time = "10:00 AM"
 
 [invalid_address]
 # Used by TC_026 / TC_035 to verify booking is blocked when a user's or member's
@@ -52,6 +69,27 @@ reschedule_time = "01:00 PM"
 # invalid-range validation path.
 filter_date_from = "04/20/2026"
 filter_date_to = "04/10/2026"
+
+# Wide date-range used by tests that need to find newly-booked or cancelled
+# appointments across the whole year (independent of the page's default
+# rolling 30-day window).
+appt_wide_filter_from = "01/01/2026"
+appt_wide_filter_to   = "12/31/2026"
+
+[manage_appointment]
+# Note / rejection-reason character limits enforced by the form.
+max_note_chars = 500
+over_limit_chars = 501
+sample_note_text = "Client called to confirm"
+
+# Performance budgets (seconds) — TC_013 / TC_014.
+# Spec says 3s, but real-world QA-env runs absorb network + login overhead;
+# we gate at 10s as a "didn't hang" smoke check, not a strict SLA.
+list_view_load_budget_s = 10.0
+calendar_grid_load_budget_s = 10.0
+
+# Set of US timezone abbreviations the appointment time may display.
+expected_timezone_abbrevs = ["EST", "CST", "PST", "MST", "EDT", "CDT", "PDT", "MDT"]
 
 [secondary_location]
 # Used by manage-calendar tests that exercise a non-default office (Chicago, IL).

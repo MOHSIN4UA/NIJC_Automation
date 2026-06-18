@@ -13,3 +13,13 @@ deletion_failure.png
 *.log
 google.conf
 debug_*.py
+employee_cookies.json
+tests/browser_profile/
+.playwright-mcp/
+screenshots/
+*.local-backup
+.mcp.json
+excel_content.txt
+read_excel.py
+*.xlsx
+*.txt

@@ -45,6 +45,13 @@ __all__ = [
     "_select_checkbox_for_member",
     "_select_booking_service_for",
     "_get_selected_member_names_from_dom",
+    "_fill_basic_calendar_fields",
+    "_click_chip_by_date_label",
+    "_select_time_robust",
+    "_fill_remaining_form_with_valid_data",
+    "_open_day_config_from_preview",
+    "_get_timestamped_filename",
+    "_click_save_and_wait",
 ]
 
 
@@ -79,7 +86,17 @@ def select_time_via_clock(page, input_xpath, time_str, ok_btn_xpath, xpaths):
 
     # Trigger the clock dialog
     inp = page.locator(input_xpath).first
-    inp.scroll_into_view_if_needed()
+    try:
+        inp.scroll_into_view_if_needed()
+    except Exception as e:
+        # Element may be detached/re-rendering. Re-resolve and retry once.
+        print(f"[Clock] scroll_into_view race ({e}) — re-resolving locator")
+        page.wait_for_timeout(500)
+        inp = page.locator(input_xpath).first
+        try:
+            inp.scroll_into_view_if_needed()
+        except Exception:
+            pass
 
     dialog = None
     clock_icon_xpath = input_xpath + xpaths["clock_icon_suffix"]
@@ -88,16 +105,29 @@ def select_time_via_clock(page, input_xpath, time_str, ok_btn_xpath, xpaths):
     for i in range(5):
         print(f"[Clock] Triggering {time_str} (attempt {i+1})...")
         page.wait_for_timeout(1000)
-        
-        # Try different triggers: Input, Icon, then JS Evaluate
-        if i == 0 or i == 2:
-            inp.click(force=True)
-        elif i == 1 or i == 3:
-            icon = page.locator(clock_icon_xpath).first
-            (icon if icon.count() > 0 else inp).click(force=True)
-        else:
-            page.evaluate("el => el.click()", inp.element_handle())
-            
+
+        # Try different triggers: Input, Icon, then JS Evaluate. Wrap each
+        # in try/except so a 'not visible' / 'detached' failure on one
+        # strategy falls through to the next instead of aborting the loop.
+        try:
+            if i == 0 or i == 2:
+                inp.click(force=True)
+            elif i == 1 or i == 3:
+                icon = page.locator(clock_icon_xpath).first
+                target = icon if icon.count() > 0 else inp
+                try:
+                    target.click(force=True)
+                except Exception:
+                    handle = target.element_handle()
+                    if handle:
+                        page.evaluate("el => el.click()", handle)
+            else:
+                handle = inp.element_handle()
+                if handle:
+                    page.evaluate("el => el.click()", handle)
+        except Exception as e:
+            print(f"[Clock] Trigger attempt {i+1} failed: {e}")
+
         page.wait_for_timeout(2000)
         dialog = page.locator(dialog_selector).first
         if dialog.is_visible():
@@ -214,19 +244,42 @@ def _pick_random_future_date(min_months=1, max_months=3):
 
 
 def _wait_for_picker(page, input_locator=None, timeout=10000):
-    """Wait for the MUI date picker popper to become visible."""
-    # Using a generic picker popper selector from xpaths if available
-    picker_selector = ".MuiPickerPopper-paper, .MuiDateRangePicker-root" 
+    """Wait for the MUI date picker popper/dialog to become visible.
+    Some MUI builds render the picker as a [role='dialog'] instead of a
+    popper, and some inputs are readonly so clicking the input doesn't open
+    the picker — only the sibling calendar-icon adornment does. Cover both."""
+    picker_selector = (
+        "css=.MuiPickerPopper-paper, .MuiPickersPopper-root, .MuiDateRangePicker-root, "
+        "[role='dialog']:has(.MuiPickersCalendarHeader-root), "
+        "[role='dialog']:has(div[role='grid'])"
+    )
     picker = page.locator(picker_selector).first
     try:
         picker.wait_for(state="visible", timeout=timeout)
+        page.wait_for_timeout(400)
+        return
     except Exception:
-        if input_locator:
-            print("[Picker] Not visible, retrying click...")
-            input_locator.click(force=True)
+        pass
+
+    if input_locator:
+        # Try clicking the sibling calendar-icon img adornment — for readonly
+        # inputs, the input click is a no-op but the img click opens the
+        # picker.
+        try:
+            input_locator.evaluate(
+                "el => { const adorn = el.closest('.MuiInputBase-root')?.querySelector('img[role], img, [class*=adornment] *'); if (adorn) adorn.click(); }"
+            )
             picker.wait_for(state="visible", timeout=timeout)
-        else:
-            raise
+            page.wait_for_timeout(400)
+            return
+        except Exception:
+            pass
+        # Last resort: click the input again
+        print("[Picker] Not visible, retrying click...")
+        input_locator.click(force=True)
+        picker.wait_for(state="visible", timeout=timeout)
+    else:
+        picker.wait_for(state="visible", timeout=timeout)
     page.wait_for_timeout(400)
 
 
@@ -289,21 +342,44 @@ def _navigate_to_future_month(page, xpaths, clicks=1):
 
 
 def _ensure_manage_calendars_tab(page, xpaths):
-    """Ensure we are on the Manage Calendars tab by clicking menu if needed."""
+    """Ensure we are on the Manage Calendars tab by clicking menu if needed.
+    networkidle hangs on this SPA (continuous polling), so we wait for the
+    page header to read 'Manage Calendars' instead.
+    """
     header = page.locator(xpaths["page_header"]).first
     try:
         if header.count() == 0 or "Manage Calendars" not in header.inner_text(timeout=3000):
             print("[Nav] Clicking Manage Calendars menu")
             page.locator(xpaths["manage_calendars_menu"]).click()
-            page.wait_for_load_state("networkidle")
-    except:
+            try:
+                page.wait_for_load_state("domcontentloaded", timeout=15000)
+            except Exception:
+                pass
+            page.wait_for_timeout(1000)
+    except Exception:
         page.locator(xpaths["manage_calendars_menu"]).click()
-        page.wait_for_load_state("networkidle")
+        try:
+            page.wait_for_load_state("domcontentloaded", timeout=15000)
+        except Exception:
+            pass
+        page.wait_for_timeout(1000)
 
     tab_btn = page.locator(xpaths["tab_manage_calendars"])
     if tab_btn.count() > 0:
         tab_btn.click()
         page.wait_for_timeout(1000)
+
+    # Clear any inherited search/filter state from the prior test. A leftover
+    # calendar-name search (e.g. "My Test Calendar - Indiana XXXX") collapses
+    # the listing to "No records found" and breaks every downstream test that
+    # tries to operate on a row.
+    try:
+        reset_btn = page.locator("xpath=//button[normalize-space(.)='Reset' or contains(., 'Reset')]").first
+        if reset_btn.count() > 0 and reset_btn.is_visible():
+            reset_btn.click(timeout=2000)
+            page.wait_for_timeout(500)
+    except Exception:
+        pass
 
 
 def _fill_calendar_address(page, xpaths, zip_code=None, address_line1=None, use_map=False):
@@ -547,79 +623,27 @@ def _click_day_in_picker(page, day: int, xpaths):
     page.wait_for_timeout(600)
 
 
-def _ensure_edit_page_open(page, xpaths, config):
-    """Ensure we are on the Edit Calendar page for the newly created calendar."""
-    target_name = config["new_calendar"].get("dynamic_name")
-    if not target_name:
-        return
-
-    header = page.locator(xpaths["page_header"]).first
-    try:
-        # Check if already on Edit page for this name
-        if header.count() > 0 and "Edit Calendar" in header.inner_text(timeout=3000):
-            current_name = page.locator(xpaths["calendar_name_input"]).input_value()
-            if target_name in current_name:
-                return
-    except:
-        pass
-
-    print(f"[Nav] Opening Edit page for '{target_name}'")
-    page.locator(xpaths["manage_calendars_menu"]).click()
-    page.wait_for_load_state("networkidle")
-
-    search_input = page.locator(xpaths["search_input"]).first
-    search_input.wait_for(state="visible", timeout=10000)
-    search_input.fill(target_name)
-    page.keyboard.press("Enter")
-    page.wait_for_timeout(2000)
-
-    # Search and Open Action Menu with 3-attempt retry
-    for attempt in range(3):
-        print(f"[Nav] Opening Edit page Attempt {attempt+1} (Target: {target_name})")
-        row_xpath = xpaths["calendar_row_by_name"].format(name=target_name)
-        row_locator = page.locator(row_xpath).first
-        
-        try:
-            row_locator.wait_for(state="visible", timeout=10000)
-            row_locator.scroll_into_view_if_needed()
-            
-            action_btn = row_locator.locator("button[aria-label*='more' i], button.MuiIconButton-root").first
-            action_btn.scroll_into_view_if_needed()
-            action_btn.click(force=True)
-            page.wait_for_timeout(2000) 
-            
-            edit_opt = page.locator(xpaths["edit_option"]).first
-            edit_opt.wait_for(state="visible", timeout=5000)
-            edit_opt.click(force=True)
-            page.wait_for_load_state("networkidle")
-            page.wait_for_timeout(2000)
-            
-            # Simple verification: Is "Calendar" or "Calendar Name" label visible?
-            # User wants: //*[text()='Calender Name']
-            cal_label = page.locator("//*[text()='Calender Name']")
-            if cal_label.is_visible():
-                 print(f"[Nav] Successfully reached Edit page (Label/URL verified).")
-                 return
-        except Exception as e:
-            print(f"[Nav] Attempt {attempt+1} failed: {e}")
-            page.reload()
-            page.wait_for_load_state("networkidle")
-            _ensure_manage_calendars_tab(page, xpaths)
-            page.wait_for_timeout(3000)
-    
-    #assert "/edit" in page.url, f"[Nav] Failed to reach Edit page after 3 attempts. URL: {page.url}"
-    
 # ---------------------------------------------------------------------------
 # User and Appointment Helpers (NIJC Admin)
 # ---------------------------------------------------------------------------
 
 def _navigate_to_users(page, xpaths):
-    """Ensure we are on the User Management list page."""
+    """Ensure we are on the User Management list page with a clean search box."""
     if "/management/users/list" not in page.url:
         print("[Nav] Navigating to User Management")
         page.locator(xpaths["users_menu"]).click()
         page.wait_for_load_state("networkidle")
     page.wait_for_selector(xpaths["user_row"], timeout=15000)
+    # Clear any leftover search filter from a prior test so the table shows
+    # the full user list (otherwise iteration over rows can return 0 or stale).
+    try:
+        search = page.locator(xpaths["search_input_user"]).first
+        if search.input_value():
+            search.fill("")
+            page.keyboard.press("Enter")
+            page.wait_for_timeout(1500)
+    except Exception:
+        pass
 
 
 def _open_book_from_users_list(page, xpaths, search_text):
@@ -633,9 +657,25 @@ def _open_book_from_users_list(page, xpaths, search_text):
     page.locator(xpaths["search_input_user"]).fill(search_text)
     page.keyboard.press("Enter")
     page.wait_for_timeout(3000)
+    # Wait for the table to settle before picking the row — when a user was
+    # just created, the list may re-render and detach our row mid-click.
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(1000)
     row = page.locator(xpaths["user_row"]).filter(has_text=search_text).first
+    row.wait_for(state="visible", timeout=10000)
+    row.scroll_into_view_if_needed()
     row.locator(xpaths["user_action_btn"]).click(force=True)
-    page.locator(xpaths["book_appointment_option"]).click()
+    # Let the action-menu popover finish opening before targeting Book Appointment
+    page.wait_for_timeout(800)
+    book_opt = page.locator(xpaths["book_appointment_option"]).first
+    book_opt.wait_for(state="visible", timeout=10000)
+    # Guard against the "element was detached from DOM" race by retrying once
+    try:
+        book_opt.click(timeout=10000)
+    except Exception:
+        page.wait_for_timeout(1000)
+        # Re-resolve and retry
+        page.locator(xpaths["book_appointment_option"]).first.click(timeout=10000)
     page.wait_for_timeout(5000)
 
 
@@ -667,12 +707,17 @@ def _dismiss_booking_success_dialog(page, xpaths):
 
 
 def _navigate_via_menu(page, xpaths, menu_key):
-    """Click a top-level navigation menu link by its xpath key and wait for the network
-    to settle. Saves the repeated 2-line pattern of `page.locator(xpaths[KEY]).click()`
-    plus `page.wait_for_load_state("networkidle")`.
+    """Click a top-level navigation menu link by its xpath key and wait for the
+    page to settle. networkidle is unreliable on this SPA (continuous
+    polling), so we wait for DOM load and then briefly for the URL/state to
+    quiesce instead.
     """
     page.locator(xpaths[menu_key]).click()
-    page.wait_for_load_state("networkidle")
+    try:
+        page.wait_for_load_state("domcontentloaded", timeout=15000)
+    except Exception:
+        pass
+    page.wait_for_timeout(800)
 
 
 def _generate_random_dob(config):
@@ -770,8 +815,15 @@ def _wait_for_backdrop_hidden(page):
     except:
         pass
 
-def _complete_booking_flow(page, xpaths, config, member_name=None):
-    """Completes the multi-step booking flow from the booking container."""
+def _complete_booking_flow(page, xpaths, config, member_name=None, prefer_late_slot=False):
+    """Completes the multi-step booking flow from the booking container.
+
+    `prefer_late_slot=True` selects the LAST available time slot of the day
+    instead of the first. Used by date-boundary tests (TC_023/024/052) that
+    must deterministically book an afternoon slot — early-morning slots
+    sometimes hide the To-boundary bug so the test result becomes flaky
+    based on seed timing rather than product state.
+    """
     # 1. & 2. Select Member & Service
     if member_name:
         print(f"[Booking] Selecting member and service for: {member_name}")
@@ -819,29 +871,66 @@ def _complete_booking_flow(page, xpaths, config, member_name=None):
     else:
         print(f"[Booking] Office '{office_name}' not found, selecting first available office.")
         page.locator(xpaths["office_card_any"]).first.click()
-    
-    # 5. Click Next (to Date Selection)
+
+    # 5. Click Next (to Date Selection). If the office click didn't register
+    # the app shows a "Missing Slot Selection / Please select an office" modal;
+    # dismiss it, click the card via JS as a stronger fallback, and retry Next.
     page.locator(xpaths["booking_next_btn"]).click()
-    page.wait_for_timeout(3000)
+    page.wait_for_timeout(2500)
+    missing = page.locator(xpaths["missing_slot_modal"]).first
+    if missing.count() > 0 and missing.is_visible():
+        print("[Booking] 'Please select an office' modal appeared — dismissing and retrying.")
+        cancel_btn = page.locator(xpaths["missing_slot_modal_cancel_btn"]).first
+        if cancel_btn.count() > 0:
+            cancel_btn.click()
+        page.wait_for_timeout(1000)
+        page.evaluate(
+            """({xpath}) => {
+                const cards = Array.from(document.querySelectorAll('div.MuiCard-root')).filter(c => c.querySelector('h3'));
+                if (cards.length) {
+                    const c = cards[0];
+                    (c.querySelector('h3') || c).click();
+                }
+            }""",
+            {"xpath": ""},
+        )
+        page.wait_for_timeout(1500)
+        page.locator(xpaths["booking_next_btn"]).click()
+        page.wait_for_timeout(3000)
+    else:
+        page.wait_for_timeout(500)
     
-    # 6. Select Date — custom weekly grid (NOT MuiPickersDay buttons).
-    # Available dates = div containing a <p> (day number) AND a <span> (service chip).
-    new_day = config["test_data"]["reschedule_day"]
-    date_btn = page.locator(xpaths["booking_date_btn"].format(day=new_day)).first
+    # 6. Select Date — prefer tomorrow's day-of-month (today + 1) so the test
+    # always books a near-future appointment. Fall back to the first available
+    # date in the visible weekly grid if tomorrow isn't bookable.
+    from datetime import date as _date, timedelta as _td
+    tomorrow_dt = _date.today() + _td(days=1)
+    tomorrow_day = str(tomorrow_dt.day)
+    selected_date_iso = None
+    date_btn = page.locator(xpaths["booking_date_btn"].format(day=tomorrow_day)).first
     if date_btn.count() > 0 and date_btn.is_visible():
         date_btn.click()
-        print(f"[Booking] Date '{new_day}' selected ✓")
+        selected_date_iso = tomorrow_dt.isoformat()
+        print(f"[Booking] Date (today+1) '{tomorrow_day}' selected ✓")
     else:
-        print(f"[Booking] Day '{new_day}' not found, selecting first available date from custom grid.")
+        print(f"[Booking] Day '{tomorrow_day}' not bookable — selecting first available date from custom grid.")
         available_date = page.locator(xpaths["booking_date_any_available"]).first
         available_date.wait_for(state="visible", timeout=15000)
         available_date.click()
     page.wait_for_timeout(2000)
-    
-    # 7. Select Time Slot
+
+    # 7. Select Time Slot. Date-boundary tests pass prefer_late_slot=True to
+    # force the latest slot of the day — early-morning slots can mask the
+    # To-boundary bug (slot's local-date == UTC-date), making the test flaky.
     slot_locator = page.locator(xpaths["available_time_slot"]).filter(has_not=page.locator("[disabled]"))
+    captured_slot_text = None
     if slot_locator.count() > 0:
-        slot_locator.first.click()
+        target_slot = slot_locator.last if prefer_late_slot else slot_locator.first
+        try:
+            captured_slot_text = target_slot.inner_text(timeout=2000).strip()
+        except Exception:
+            captured_slot_text = None
+        target_slot.click()
     else:
         pytest.skip("No available time slots found for booking")
 
@@ -860,9 +949,11 @@ def _complete_booking_flow(page, xpaths, config, member_name=None):
     # 8. Click Next (to Review)
     page.locator(xpaths["booking_next_btn"]).click()
     page.wait_for_timeout(3000)
-    
+
     # 9. Click Final Book Appointment
     page.locator(xpaths["booking_final_book_btn"]).click()
+
+    return {"slot_text": captured_slot_text, "date_iso": selected_date_iso}
 
 def _create_user_and_skip_eligibility(page, xpaths, config, first_name=None, last_name=None):
     """Creates a new user and skips the eligibility questions page.
@@ -922,19 +1013,22 @@ def _create_user_and_skip_eligibility(page, xpaths, config, first_name=None, las
     page.keyboard.press("ArrowDown")
     page.keyboard.press("Enter")
     page.wait_for_timeout(1000)
-    
+
     page.locator(xpaths["city_input"]).fill(user_data["city"])
     page.wait_for_timeout(1000)
     page.keyboard.press("Enter")
     page.wait_for_timeout(1000)
-    
+
     page.locator(xpaths["zip_code_input"]).fill(user_data["zip"])
     page.wait_for_timeout(1000)
     page.keyboard.press("Enter")
     page.wait_for_timeout(1000)
     
     # Email
-    unique_email = f"auto_{int(time.time())}_{random.randint(1111, 9999)}@example.com"
+    # Email — short and dynamic. 6 hex chars = 16M possibilities, plenty
+    # for any single test session and short enough to read at a glance.
+    import uuid as _uuid
+    unique_email = f"auto{_uuid.uuid4().hex[:6]}@example.com"
     page.locator(xpaths["email_input"]).click()
     page.locator(xpaths["email_input"]).press_sequentially(unique_email, delay=50)
     page.wait_for_timeout(1000)
@@ -1026,7 +1120,7 @@ def _find_user_with_members(page, xpaths, max_attempts=10):
     return None
 
 
-def _find_or_create_family_with_members(page, xpaths, config, min_eligible=2, max_pages=5, force_create=False, tc_id=None):
+def _find_or_create_family_with_members(page, xpaths, config, min_eligible=2, max_pages=5, force_create=False, tc_id=None, last_name_tag=None):
     """
     Search the Users list for a primary user who has at least `min_eligible` eligible/active
     household members from the SAME family.
@@ -1104,8 +1198,10 @@ def _find_or_create_family_with_members(page, xpaths, config, min_eligible=2, ma
     page.wait_for_load_state("networkidle")
 
     ud = config["new_user"]
-    ts = int(_time.time())
-    rnd = _random.randint(100, 999)
+    # Short, dynamic suffix for primary email + member naming.
+    import uuid as _uuid
+    ts = int(_time.time())  # 10-digit Unix seconds — still unique for any session
+    rnd = _uuid.uuid4().hex[:6]
 
     # Per-TC name tagging: when caller passes tc_id, the primary first name and the
     # email prefix encode the TC number so users created by this test are identifiable.
@@ -1121,8 +1217,12 @@ def _find_or_create_family_with_members(page, xpaths, config, min_eligible=2, ma
     page.keyboard.press("Enter")
     page.wait_for_timeout(1000)
     
+    # Last name — prefer `last_name_tag` (set by per-file callers like
+    # 'BookAppointment' / 'ManageAppointment') so users seeded by each test
+    # file are identifiable in QA data; fall back to config default.
+    primary_last = last_name_tag if last_name_tag else ud["last_name"]
     page.locator(xpaths["last_name_input"]).click(force=True)
-    page.locator(xpaths["last_name_input"]).press_sequentially(ud["last_name"], delay=100)
+    page.locator(xpaths["last_name_input"]).press_sequentially(primary_last, delay=100)
     page.wait_for_timeout(1000)
     page.keyboard.press("Enter")
     page.wait_for_timeout(1000)
@@ -1149,7 +1249,8 @@ def _find_or_create_family_with_members(page, xpaths, config, min_eligible=2, ma
     
     page.locator(xpaths["zip_code_input"]).fill("46201")
     page.wait_for_timeout(500)
-    primary_email = f"{email_prefix}_{ts}_{rnd}@example.com"
+    # Short and dynamic — `rnd` is a fresh 6-hex UUID slice per call
+    primary_email = f"{email_prefix}{rnd}@example.com"
     page.locator(xpaths["email_input"]).fill(primary_email)
     page.locator(xpaths["send_email_checkbox"]).click()
     page.locator(xpaths["user_save_btn"]).click()
@@ -1460,14 +1561,16 @@ def _book_member_appointment(page, xpaths, config, member_name, tag="TC"):
     page.locator(xpaths["booking_next_btn"]).click()
     page.wait_for_timeout(3000)
 
-    # ── Step 12: Select Date (custom weekly grid, not MuiPickersDay) ──
-    new_day = config["test_data"]["reschedule_day"]
-    date_btn = page.locator(xpaths["booking_date_btn"].format(day=new_day)).first
+    # ── Step 12: Select Date — prefer tomorrow (today + 1), fallback to first
+    # available date in the visible weekly grid.
+    from datetime import date as _date, timedelta as _td
+    tomorrow_day = str((_date.today() + _td(days=1)).day)
+    date_btn = page.locator(xpaths["booking_date_btn"].format(day=tomorrow_day)).first
     if date_btn.count() > 0 and date_btn.is_visible():
         date_btn.click()
-        print(f"[{tag}] Date '{new_day}' selected ✓")
+        print(f"[{tag}] Date (today+1) '{tomorrow_day}' selected ✓")
     else:
-        print(f"[{tag}] Day '{new_day}' not found — picking first available date from custom grid")
+        print(f"[{tag}] Day '{tomorrow_day}' not bookable — picking first available date from custom grid")
         available_date = page.locator(xpaths["booking_date_any_available"]).first
         available_date.wait_for(state="visible", timeout=15000)
         available_date.click()
@@ -1539,15 +1642,16 @@ def _cancel_booked_appointment(page, xpaths, user_name, tag="Cleanup"):
     page.keyboard.press("Enter")
     page.wait_for_timeout(3000)
 
-    # 3. Find the matching appointment row
-    all_rows = page.locator(xpaths["appointment_row"])
-    target_row = None
-    for i in range(all_rows.count()):
-        if user_name.lower() in all_rows.nth(i).inner_text().lower():
-            target_row = all_rows.nth(i)
-            break
-
-    if not target_row:
+    # 3. Find the matching appointment row.
+    # Use tbody-scoped locator (excludes the header tr that shares MuiTableRow-root)
+    # and Playwright's atomic filter+wait — earlier code did
+    # `range(rows.count())` then `rows.nth(i).inner_text()`, which races: count()
+    # captures one DOM state but a later nth(i) lookup can hang 60s if the table
+    # re-renders between calls.
+    target_row = page.locator(xpaths["tbody_appointment_row"]).filter(has_text=user_name).first
+    try:
+        target_row.wait_for(state="visible", timeout=15000)
+    except Exception:
         print(f"[{tag}] WARNING: No appointment row found for '{user_name}' — skipping cancellation")
         return
 
@@ -1785,3 +1889,388 @@ def _get_selected_member_names_from_dom(page, all_family_names):
         }}
     """)
 
+
+# ============================================================================
+# Helpers moved from tests/test_manage_calendar.py (originally inline there).
+# Tests still reach them transparently via `from tests.utils import *`.
+# ============================================================================
+
+def _get_timestamped_filename(base_name):
+    return f"screenshots/{base_name}_{datetime.now().strftime('%H%M%S')}.jpg"
+
+# ---------------------------------------------------------------------------
+# Local Robust Helpers
+# ---------------------------------------------------------------------------
+
+def _fill_basic_calendar_fields(page, xpaths):
+    """Fills mandatory fields for a new calendar."""
+    # Wait for the first field to ensure page is loaded
+    page.locator(xpaths["calendar_name_input"]).wait_for(state="visible", timeout=20000)
+    
+    page.locator(xpaths["zip_code_input"]).fill("46204")
+    try:
+        opt = page.locator(xpaths["ui_option"].format(val="46204")).first
+        opt.wait_for(state="visible", timeout=5000)
+        opt.click()
+    except:
+        page.keyboard.press("Enter")
+    
+    page.locator(xpaths["address_input"]).fill("200 E Washington St")
+    page.locator(xpaths["services_input"]).click()
+    # Use ui_option_all which is "//li" to select the first service
+    page.locator(xpaths["ui_option_all"]).first.click()
+    page.keyboard.press("Escape")
+
+def _click_chip_by_date_label(page, date_obj):
+    """Finds and clicks a day chip in the preview by its date object with robust navigation."""
+    import re
+    from datetime import datetime
+    month_name = date_obj.strftime("%b") # e.g. "Jun"
+    day_num = str(date_obj.day)
+    
+    print(f"[Preview] Target Date: {date_obj.strftime('%b %d, %Y')}")
+    
+    # Scroll to preview section
+    preview_heading = page.locator("//h2[contains(., 'Preview')]").first
+    preview_heading.scroll_into_view_if_needed()
+    
+    # Range text: e.g. "Apr 22, 2026 - May 12, 2026"
+    header_locator = page.locator("//h2[contains(.,'Calendar Preview')]/following::p[contains(@class, 'MuiTypography-root')][1]")
+    
+    # Navigation loop
+    for i in range(10): # Up to 10 periods (approx 7 months)
+        try:
+            header_text = header_locator.inner_text(timeout=5000).strip()
+            print(f"[Preview] Current Range: '{header_text}'")
+            
+            # Parse header: "Apr 22, 2026 - May 12, 2026"
+            parts = header_text.split(" - ")
+            if len(parts) == 2:
+                try:
+                    # Clean up parts (sometimes they have extra whitespace or newlines)
+                    p1 = parts[0].strip()
+                    p2 = parts[1].strip()
+                    
+                    # Expected format "%b %d, %Y"
+                    # If format changes, this might fail, so we wrap in try-except
+                    start_dt = datetime.strptime(p1, "%b %d, %Y")
+                    end_dt = datetime.strptime(p2, "%b %d, %Y")
+                    
+                    if start_dt <= date_obj <= end_dt:
+                        print(f"[Preview] Date {date_obj.strftime('%Y-%m-%d')} is within displayed range.")
+                        break
+                    elif date_obj < start_dt:
+                        print(f"[Preview] Target date is BEFORE current range. (Navigation only supports 'Next' for now)")
+                        break 
+                    else:
+                        print(f"[Preview] Target date is AFTER current range. Clicking Next...")
+                except Exception as e:
+                    print(f"[Preview] Parsing error: {e}. Falling back to month name check.")
+                    if month_name in header_text:
+                        break
+            else:
+                if month_name in header_text:
+                    break
+        except Exception as e:
+            print(f"[Preview] Header check failed: {e}")
+        
+        # Click Next button. The right arrow button in the preview header gets
+        # disabled once the preview reaches the deactivation date, so we
+        # detect that state and break the loop instead of hanging for 60s
+        # on a click against a disabled button.
+        next_btn = page.locator("//h2[contains(.,'Calendar Preview')]/following::button[contains(@class, 'MuiIconButton-root')]").last
+        if not next_btn.is_visible():
+            print("[Preview] Next button not found!")
+            break
+        try:
+            if next_btn.is_disabled():
+                print("[Preview] Next button disabled — end of preview range reached.")
+                break
+        except Exception:
+            pass
+        next_btn.click()
+        page.wait_for_timeout(2000)
+
+    # Click the h6 containing the day number within the preview context
+    # We target the h6 that is likely the 'active' one in the grid
+    day_h6 = page.locator(f"//h2[contains(.,'Calendar Preview')]/following::div[contains(@class, 'MuiBox-root')]//h6[text()='{day_num}']").first
+    
+    if day_h6.is_visible():
+        print(f"[Preview] Clicking day {day_num}")
+        day_h6.scroll_into_view_if_needed()
+        day_h6.click(force=True)
+        page.wait_for_timeout(2000)
+        # Scroll a bit more to see the slots below
+        page.evaluate("window.scrollBy(0, 400)")
+        page.wait_for_timeout(1000)
+    else:
+        print(f"[Warning] Day {day_num} not found in preview grid!")
+        page.screenshot(path=_get_timestamped_filename(f"MissingDay_{day_num}"))
+
+        try:
+            page.screenshot(path=f"FAIL_Preview_Day_{day_num}.png")
+        except:
+            pass
+
+def _open_day_config_from_preview(page, xpaths):
+    """Helper to scroll to preview, click an open day chip, and scroll to the bottom of the page using a saw-tooth approach."""
+    from datetime import datetime
+    TIMESTAMP = datetime.now().strftime("%H%M%S")
+    
+    print("[Preview-Flow] Scrolling to Calendar Preview heading")
+    # If a save just ran (e.g. caller clicked Update Configuration/Proceed),
+    # the NIJC-logo progress overlay can still be up and the Preview section
+    # only renders once it clears. Wait for the loader to finish first.
+    try:
+        pb = page.locator(xpaths["progress_bar"])
+        while pb.count() > 0 and pb.is_visible():
+            page.wait_for_timeout(500)
+    except Exception:
+        pass
+    preview_heading = page.get_by_text("Calendar Preview", exact=False).first
+    try:
+        preview_heading.wait_for(state="visible", timeout=15000)
+    except:
+        print("[Preview-Flow] Calendar Preview heading not found via get_by_text, trying generic locator")
+        preview_heading = page.locator("xpath=//*[contains(text(), 'Preview')]").first
+        preview_heading.wait_for(state="visible", timeout=15000)
+    
+    preview_heading.scroll_into_view_if_needed()
+    page.wait_for_timeout(1500)
+
+    # --- Scroll page down until the Open chip is clickable ---
+    print("[Preview-Flow] Searching for Open day chip")
+    open_day = page.locator(xpaths["calendar_open_day_chip"]).first
+    
+    # If no 'Open' chip, try to find ANY chip that isn't 'No Config'
+    if open_day.count() == 0:
+        print("[Preview-Flow] No 'Open' chip found, checking for ANY clickable chip...")
+        open_day = page.locator("//h2[contains(.,'Calendar Preview')]/following::span[contains(@class,'MuiChip-label') and not(contains(.,'No Config'))]").first
+
+    open_day.scroll_into_view_if_needed()
+    page.wait_for_timeout(1000)
+    open_day.click()
+    print("[Preview-Flow] Chip clicked. Starting slow saw-tooth scroll to bottom.")
+    page.wait_for_timeout(2000)
+
+    # --- Slow "Saw-tooth" Scroll (Down and Up) to reveal Day Configuration AND Slot Rows ---
+    print("[Preview-Flow] Scrolling PAGE slowly to reveal Day Configuration and Slot Rows...")
+    drawer_title = page.locator(xpaths["day_config_title"]).first
+    first_slot = page.locator(xpaths["slot_row"]).first
+    found_title = False
+    found_slots = False
+    
+    # Target: Scroll until all elements found
+    for i in range(40): # Even more increments for slow rendering
+        if not found_title and drawer_title.is_visible():
+            print(f"[Preview-Flow] Day configuration title found at scroll attempt {i+1}")
+            found_title = True
+            
+        if not found_slots and first_slot.is_visible():
+            print(f"[Preview-Flow] Slot rows found at scroll attempt {i+1}")
+            found_slots = True
+            
+        if found_title and found_slots:
+            break
+            
+        # Scroll down 200px (smaller steps as requested "slowly")
+        page.evaluate("window.scrollBy(0, 200)")
+        page.wait_for_timeout(600)
+            
+        # Every 6 attempts, do a small scroll up (saw-tooth)
+        if (i + 1) % 6 == 0:
+            print("[Preview-Flow] Scrolling up slightly (saw-tooth step)")
+            page.evaluate("window.scrollBy(0, -150)")
+            page.wait_for_timeout(400)
+    
+    if not found_slots:
+        print("[Preview-Flow] Slots not found by slow scroll, trying PageDown loop...")
+        for _ in range(8):
+            if first_slot.is_visible(): 
+                found_slots = True
+                break
+            page.keyboard.press("PageDown")
+            page.wait_for_timeout(800)
+            if not found_title and drawer_title.is_visible(): found_title = True
+
+    # Final confirmation and scroll into view
+    try:
+        drawer_title.wait_for(state="attached", timeout=5000)
+        drawer_title.scroll_into_view_if_needed()
+        print("[Preview-Flow] Day configuration section confirmed.")
+        
+        # Wait longer for slots as they are the meat of the section
+        first_slot.wait_for(state="visible", timeout=15000)
+        first_slot.scroll_into_view_if_needed()
+        print("[Preview-Flow] Slot rows confirmed.")
+    except Exception as e:
+        print(f"[Preview-Flow] ERROR/Warning: Could not confirm all elements: {e}")
+        try:
+            page.screenshot(path=f"screenshots/FAIL_Elements_Not_Found_{TIMESTAMP}.jpg")
+        except: pass
+        if not found_title:
+            raise Exception("Day Configuration title not found after scroll")
+        # If slots still not found but title is, we might let it proceed to see if it's a specific TC issue
+
+        # If slots still not found but title is, we might let it proceed to see if it's a specific TC issue
+
+def _select_time_robust(page, input_xpath, time_str, ok_btn_xpath, xpaths):
+    """Legacy entry point — delegates to select_time_via_clock which now
+    follows the verified AM/PM-first → reopen → hour → > arrow → minute
+    workflow (see feedback_clock_picker_workflow memory)."""
+    print(f"[Clock-Robust] Triggering {time_str} for {input_xpath}")
+    return select_time_via_clock(page, input_xpath, time_str, ok_btn_xpath, xpaths)
+
+
+def _click_save_and_wait(page, xpaths, button_xpath_key="update_configuration_btn"):
+    """Click the Proceed / Update Configuration button and then block until
+    the NIJC-logo progress-bar overlay clears. Mandatory after every save
+    per user guidance (`while pb.is_visible(): page.wait_for_timeout(500)`)
+    — otherwise downstream assertions race the loader and time out.
+
+    Args:
+        page: Playwright page
+        xpaths: xpaths dict (merged sections)
+        button_xpath_key: which xpath to use for the button (default:
+            "update_configuration_btn"). Pass a different key for the
+            User Dashboard or other variants.
+    """
+    page.locator(xpaths[button_xpath_key]).click(force=True)
+    try:
+        pb = page.locator(xpaths["progress_bar"])
+        while pb.count() > 0 and pb.is_visible():
+            page.wait_for_timeout(500)
+    except Exception:
+        pass
+
+def _fill_remaining_form_with_valid_data(page, xpaths, config):
+    """Helper to fill valid data in all required fields except the one being tested."""
+    cal_data = config["new_calendar"]
+
+    # Fill Address and ZIP using unified helper
+    _fill_calendar_address(page, xpaths, zip_code=cal_data["zip"], address_line1=cal_data["address"])
+
+    # Services (if empty)
+    svc_loc = page.locator(xpaths["services_input"])
+    if not svc_loc.input_value():
+        svc_loc.click()
+        page.locator(xpaths["ui_option_all"]).first.click()
+        page.keyboard.press("Escape")
+
+    # Dates are usually pre-filled with today/future, but ensure they are set
+    # Operating hours are pre-filled with 9-5 usually
+
+
+def _ensure_edit_page_open(page, xpaths, config):
+    """Helper to ensure we are on the edit page of the first available calendar."""
+    _ensure_manage_calendars_tab(page, xpaths)
+    page.wait_for_selector(xpaths["manage_calendar_row"], timeout=20000)
+    page.evaluate(xpaths["horizontal_scroll_table_script"])
+    page.wait_for_timeout(1000)
+    action_btn = page.locator(xpaths["calendar_action_menu"]).first
+    action_btn.click(force=True)
+    edit_opt = page.locator(xpaths["edit_option"])
+    try:
+        edit_opt.wait_for(state="visible", timeout=5000)
+    except:
+        print("[Helper] Re-clicking action menu...")
+        action_btn.click(force=True)
+    
+    edit_opt.wait_for(state="visible", timeout=15000)
+    edit_opt.click()
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(2000)
+
+# Portal Helpers
+# ---------------------------------------------------------------------------
+def _navigate_to_portal_calendar(page, xpaths, config, calendar_name=None):
+    """Helper to navigate to a specific calendar in the User Portal."""
+    target_cal_name = calendar_name if calendar_name else config["new_calendar"]["name"]
+
+    print(f"[Portal] Navigating to appointment flow for: {target_cal_name}")
+    
+    page.locator(xpaths["new_appointment_btn"]).wait_for(state="visible", timeout=30000)
+    page.locator(xpaths["new_appointment_btn"]).click()
+    page.wait_for_load_state("networkidle")
+    
+    # Select Member (Checkbox)
+    print("[Portal] Selecting first member")
+    member_cb = page.locator(xpaths["checkbox_member"]).first
+    member_cb.wait_for(state="visible", timeout=15000)
+    member_cb.click()
+    page.wait_for_timeout(500)
+
+    # Select Service
+    svc_input = page.locator(xpaths["select_service"]).first
+    svc_input.wait_for(state="visible", timeout=15000)
+    
+    service_name = "Adjustment of Status"
+    if "new_calendar" in config and "services" in config["new_calendar"]:
+        service_name = config["new_calendar"]["services"][0]
+        
+    print(f"[Portal] Selecting service: {service_name}")
+    
+    # User's requested click-based selection
+    svc_input.click()
+    opt = page.locator(xpaths["service_option"].format(service=service_name)).first
+    opt.wait_for(state="visible", timeout=15000)
+    opt.click(force=True)
+
+    page.locator(xpaths["next_btn"]).click()
+    
+    # Wait for office selection step marker before scanning cards
+    print("[Portal] Waiting for office selection step marker...")
+    expect(page.locator(xpaths["office_selection_marker"])).to_be_visible(timeout=50000)
+    page.wait_for_timeout(2000)
+    
+    # Select Office/Calendar - ROBUST SEARCH
+    print(f"[Portal] Searching for calendar card '{target_cal_name}'...")
+    found = False
+    for attempt in range(3):
+        for i in range(15):
+            # Scan names for logging
+            names = page.locator("//h3[contains(@class, 'MuiTypography-h6')]").all_text_contents()
+            print(f"[Portal] Attempt {attempt+1}, Scroll {i+1}: Calendars: {names}")
+            
+            # Based on DOM inspection, the name is in an h3 tag.
+            # We target the heading directly for precision.
+            card_heading = page.get_by_role("heading", name=target_cal_name, exact=True)
+            
+            if card_heading.is_visible():
+                print(f"[Portal] Found calendar heading '{target_cal_name}'")
+                card_heading.scroll_into_view_if_needed()
+                card_heading.click()
+                
+                # Brief wait for selection to be processed
+                page.wait_for_timeout(2000)
+                
+                found = True
+                break
+            page.evaluate("window.scrollBy(0, 500)")
+            page.wait_for_timeout(800)
+            
+        if found: break
+        if attempt < 2:
+            print(f"[Portal] Not found. Navigating home and retrying...")
+            page.goto("https://uat-user.azurehosted.app/home")
+            page.wait_for_load_state("networkidle")
+            
+            # Restart flow
+            page.locator(xpaths["new_appointment_btn"]).click()
+            page.wait_for_load_state("networkidle")
+            page.locator(xpaths["checkbox_member"]).first.click()
+            
+            # Service
+            page.locator(xpaths["select_service"]).first.click()
+            page.locator(xpaths["service_option"].format(service=service_name)).first.wait_for(state="visible", timeout=15000)
+            page.locator(xpaths["service_option"].format(service=service_name)).first.click(force=True)
+            page.locator(xpaths["next_btn"]).click()
+            
+            expect(page.locator(xpaths["office_selection_marker"])).to_be_visible(timeout=30000)
+            page.wait_for_timeout(2000)
+
+    if not found:
+        pytest.fail(f"Could not find calendar card '{target_cal_name}' in portal.")
+        
+    page.locator(xpaths["next_btn"]).click()
+    page.wait_for_load_state("networkidle")

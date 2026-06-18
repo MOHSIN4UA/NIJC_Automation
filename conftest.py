@@ -133,6 +133,229 @@ def user_dashboard_session(admin_session):
 
 
 # ---------------------------------------------------------------------------
+# Employee Portal session — separate persistent context, employee SSO identity
+# ---------------------------------------------------------------------------
+
+from contextlib import contextmanager
+import json as _json
+
+
+def _login_employee_in_tab(emp_page, target_url, admin_xpaths, emp_email, emp_password):
+    """Drive the SSO + MFA flow on a brand-new tab, explicitly typing the
+    employee credentials. Has longer timeouts than the generic
+    `_perform_login` because the MS sign-in form can take 10–20s to
+    render when there's no cached MS session (which is our case after
+    clearing cookies)."""
+    print(f"[emp_login] Navigating to {target_url}")
+    emp_page.goto(target_url, wait_until="domcontentloaded", timeout=60000)
+    emp_page.wait_for_timeout(2000)
+
+    # Wait for the app's SSO button and click it
+    print("[emp_login] Waiting for SSO login button on app page...")
+    emp_page.wait_for_selector(admin_xpaths["login_with_sso"], timeout=30000)
+    emp_page.locator(admin_xpaths["login_with_sso"]).click()
+    print("[emp_login] Clicked 'Login with SSO'")
+
+    # Wait for redirect to Microsoft
+    emp_page.wait_for_url("**/login.microsoftonline.com/**", timeout=60000)
+    emp_page.wait_for_load_state("domcontentloaded")
+    print(f"[emp_login] Reached MS login: {emp_page.url[:80]}…")
+
+    # If MS shows an account picker (because of admin's MS session), click
+    # "Use another account" so we can type the employee email.
+    try:
+        use_another = emp_page.locator(
+            "xpath=//*[normalize-space()='Use another account' or contains(., 'another account')]"
+        ).first
+        if use_another.is_visible(timeout=4000):
+            print("[emp_login] Clicking 'Use another account'")
+            use_another.click()
+            emp_page.wait_for_load_state("domcontentloaded")
+            emp_page.wait_for_timeout(1500)
+    except Exception:
+        pass
+
+    # Fill email — longer wait + alternate selectors for resilience
+    print(f"[emp_login] Filling email: {emp_email}")
+    email_input = None
+    for selector in (
+        admin_xpaths["email_input"],
+        "xpath=//input[@type='email']",
+        "xpath=//input[@name='loginfmt']",
+    ):
+        candidate = emp_page.locator(selector).first
+        try:
+            candidate.wait_for(state="visible", timeout=20000)
+            email_input = candidate
+            break
+        except Exception:
+            continue
+    if email_input is None:
+        emp_page.screenshot(path=f"screenshots/emp_login_no_email_input_{datetime.now().strftime('%H%M%S')}.jpg")
+        raise RuntimeError(f"Could not locate MS email input on {emp_page.url}")
+    email_input.fill(emp_email)
+    emp_page.locator(admin_xpaths["next_button"]).click()
+    emp_page.wait_for_load_state("domcontentloaded")
+    emp_page.wait_for_timeout(2000)
+
+    # Fill password
+    print("[emp_login] Filling password")
+    pw_input = None
+    for selector in (
+        admin_xpaths["password_input"],
+        "xpath=//input[@type='password']",
+        "xpath=//input[@name='passwd']",
+    ):
+        candidate = emp_page.locator(selector).first
+        try:
+            candidate.wait_for(state="visible", timeout=30000)
+            pw_input = candidate
+            break
+        except Exception:
+            continue
+    if pw_input is None:
+        emp_page.screenshot(path=f"screenshots/emp_login_no_pw_input_{datetime.now().strftime('%H%M%S')}.jpg")
+        raise RuntimeError(f"Could not locate MS password input on {emp_page.url}")
+    pw_input.fill(emp_password)
+    emp_page.locator(admin_xpaths["sign_in_button"]).click()
+    emp_page.wait_for_load_state("domcontentloaded")
+
+    # Optional 'Stay signed in?'
+    try:
+        stay_btn = emp_page.locator(admin_xpaths["stay_signed_in_yes"])
+        stay_btn.wait_for(state="visible", timeout=8000)
+        print("[emp_login] Clicking 'Stay signed in: Yes'")
+        stay_btn.click()
+    except Exception:
+        pass
+
+    # MFA — user approves on their phone
+    print("\n" + "=" * 60)
+    print("  *** ACTION REQUIRED: APPROVE MFA ON EMPLOYEE PHONE ***")
+    print("  Waiting up to 2 minutes for dashboard…")
+    print("=" * 60 + "\n")
+    emp_page.wait_for_url("**/dashboard", timeout=120000)
+    emp_page.wait_for_selector(admin_xpaths["dashboard_welcome_text"], timeout=30000)
+    print("[emp_login] ✓ Employee dashboard reached")
+
+
+@contextmanager
+def employee_tab(admin_page, admin_xpaths, config):
+    """Context manager: open a NEW TAB in admin's existing browser context,
+    log in as the employee, yield that tab, then restore admin's cookies.
+
+    Use this AFTER admin has finished any seeding work in admin_page — the
+    employee login overwrites admin's SSO cookies for the duration of the
+    `with` block. On exit, admin's cookies are restored so subsequent
+    admin-only tests still work.
+
+    First call requires MFA approval on the employee's phone. Cookies for
+    the employee are persisted in `employee_cookies.json` so subsequent
+    calls skip MFA (the SSO redirect just reuses the cached MS session).
+
+    Usage:
+        admin_page, admin_xpaths, config = admin_session
+        # ... admin seeds appointments / assigns to employee here ...
+        with employee_tab(admin_page, admin_xpaths, config) as emp_page:
+            # emp_page is the new tab, logged in as the employee
+            ...
+    """
+    credentials = config["credentials"]
+    target_url = config["admin"]["url"]
+    emp_cookies_file = "employee_cookies.json"
+
+    # 1) Snapshot admin's full cookie set so we can restore at the end.
+    saved_admin_cookies = admin_page.context.cookies()
+    print(f"[employee_tab] Snapshotted {len(saved_admin_cookies)} admin cookies")
+
+    # 2) Try to load cached employee cookies; if present we can skip the
+    # full SSO + MFA dance on subsequent runs.
+    cached_emp_cookies = None
+    if os.path.exists(emp_cookies_file):
+        try:
+            with open(emp_cookies_file) as f:
+                cached_emp_cookies = _json.load(f)
+        except Exception:
+            cached_emp_cookies = None
+
+    # 3) Swap cookies so the new tab opens AS the employee (or with no
+    # session at all if first run).
+    admin_page.context.clear_cookies()
+    if cached_emp_cookies:
+        try:
+            admin_page.context.add_cookies(cached_emp_cookies)
+            print(f"[employee_tab] Loaded {len(cached_emp_cookies)} cached employee cookies")
+        except Exception as e:
+            print(f"[employee_tab] Could not apply cached employee cookies: {e}")
+
+    # 4) Open a real second TAB in admin's existing context.
+    emp_page = admin_page.context.new_page()
+    emp_page.set_default_navigation_timeout(120000)
+    emp_page.set_default_timeout(120000)
+    emp_page.bring_to_front()
+
+    # 5) Decide path: try to land on /dashboard first (skip SSO if cached),
+    # otherwise drive the full SSO + MFA flow with explicit emp credentials.
+    try:
+        emp_page.goto(
+            target_url.rstrip("/") + "/dashboard",
+            wait_until="domcontentloaded",
+            timeout=20000,
+        )
+        emp_page.wait_for_timeout(2000)
+    except Exception:
+        pass
+
+    if "/dashboard" in emp_page.url:
+        print("[employee_tab] Cached cookies were valid — skipped SSO")
+    else:
+        # Full SSO with explicit employee creds + extended waits
+        try:
+            _login_employee_in_tab(
+                emp_page,
+                target_url,
+                admin_xpaths,
+                credentials["employee_email"],
+                credentials["employee_password"],
+            )
+        except Exception as e:
+            print(f"[employee_tab] Login attempt failed ({e}); clearing cookies and retrying")
+            admin_page.context.clear_cookies()
+            _login_employee_in_tab(
+                emp_page,
+                target_url,
+                admin_xpaths,
+                credentials["employee_email"],
+                credentials["employee_password"],
+            )
+
+    # 6) Cache fresh employee cookies for next test
+    try:
+        new_emp_cookies = emp_page.context.cookies()
+        with open(emp_cookies_file, "w") as f:
+            _json.dump(new_emp_cookies, f)
+        print(f"[employee_tab] Cached {len(new_emp_cookies)} employee cookies for future tests")
+    except Exception as e:
+        print(f"[employee_tab] Could not cache employee cookies: {e}")
+
+    try:
+        yield emp_page
+    finally:
+        # 7) Teardown: close the tab and restore admin's cookies so the
+        # next admin-only test starts on a working session.
+        try:
+            emp_page.close()
+        except Exception:
+            pass
+        try:
+            admin_page.context.clear_cookies()
+            admin_page.context.add_cookies(saved_admin_cookies)
+            print("[employee_tab] Restored admin cookies — next admin test will see admin identity")
+        except Exception as e:
+            print(f"[employee_tab] Warning: failed to restore admin cookies: {e}")
+
+
+# ---------------------------------------------------------------------------
 # Login logic (always runs the full login flow)
 # ---------------------------------------------------------------------------
 
@@ -375,6 +598,32 @@ def pytest_configure(config):
     screenshot_dir = "screenshots"
     if not os.path.exists(screenshot_dir):
         os.makedirs(screenshot_dir)
+
+
+# ---------------------------------------------------------------------------
+# Deterministic test-file ordering.
+# Tests have data dependencies across files: manage_calendar must run first
+# (creates the calendars), then book_appointment (books slots on those
+# calendars), then manage_appointment (operates on the booked rows). pytest's
+# default alphabetical collection puts them in the wrong order, so we re-sort
+# items after collection using an explicit precedence list.
+# Any file not in the list keeps its default position AFTER the listed ones.
+# ---------------------------------------------------------------------------
+_FILE_ORDER = (
+    "test_manage_calendar.py",
+    "test_book_appointment.py",
+    "test_manage_appointment.py",
+)
+
+
+def pytest_collection_modifyitems(config, items):
+    def order_key(item):
+        # nodeid looks like "tests/test_book_appointment.py::test_xxx"
+        for idx, name in enumerate(_FILE_ORDER):
+            if name in item.nodeid:
+                return (idx, item.nodeid)
+        return (len(_FILE_ORDER), item.nodeid)  # unknown files run last
+    items.sort(key=order_key)
 
 def pytest_html_report_title(report):
     report.title = "Manage Calendar"

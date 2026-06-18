@@ -1,0 +1,17 @@
+[tc_036]
+timezone_abbreviations = ["CST", "EST", "PST", "MST", "CDT", "EDT", "PDT", "MDT"]
+fallback_timezone = "CST"
+
+[tc_038]
+valid_zip = "60601"
+invalid_zip_short = "123"
+invalid_zip_non_existent = "00000"
+zip_label_text = "Service Zip Codes (5-digit) for this day"
+
+[tc_039]
+break_name = "Afternoon break TC039"
+break_start = "02:00 PM"
+break_end = "02:30 PM"
+
+[tc_040]
+break_name_to_delete = "Afternoon break TC039"
