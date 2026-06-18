@@ -4869,27 +4869,25 @@ def _reject_first_row_with_reason(page, xpaths, config, full_name, reason_idx=0)
     row.wait_for(state="visible", timeout=15000)
     row.locator(xpaths["action_menu_btn"]).click(force=True)
     page.wait_for_timeout(800)
-    reject_opt = page.locator(xpaths.get("reject_option", "xpath=//li[@role='menuitem' and .//p[normalize-space()='Reject']]"))
+    reject_opt = page.locator(xpaths["reject_option"])
     reject_opt.first.click(force=True)
     page.wait_for_timeout(1500)
     # Pick a reason if a select/radio is presented
     try:
-        reason_radio = page.locator("xpath=//input[@type='radio' or @type='checkbox']").nth(reason_idx)
+        reason_radio = page.locator(xpaths["generic_radio_or_checkbox"]).nth(reason_idx)
         if reason_radio.count() > 0:
             reason_radio.click(force=True)
     except Exception:
         pass
     # Fill any required note
     try:
-        note_ta = page.locator("xpath=//textarea[@name='rejectionNote' or @name='reason']").first
+        note_ta = page.locator(xpaths["rejection_note_textarea"]).first
         if note_ta.count() > 0:
             note_ta.fill("Automated rejection for TC")
     except Exception:
         pass
     # Submit
-    confirm = page.locator(
-        "xpath=//button[normalize-space(.)='Yes, Reject' or normalize-space(.)='Reject' or @data-testid='qa-confirm-reject']"
-    ).first
+    confirm = page.locator(xpaths["reject_confirm_btn"]).first
     if confirm.count() > 0:
         confirm.click(force=True)
         page.wait_for_timeout(2500)
@@ -4953,7 +4951,7 @@ def test_tc_074_historical_appt_retains_original_values(admin_session):
         pytest.skip("[TC_074] No terminal-status row available in current env")
 
     before_cell = target.locator(xpaths["appt_cell_datetime"]).inner_text().strip()
-    before_name = target.locator("xpath=./td[2]").inner_text().strip().split()[0]
+    before_name = target.locator(xpaths["row_name_cell"]).inner_text().strip().split()[0]
     print(f"[TC_074] Selected terminal-status row '{before_name}' with Date & Time {before_cell!r}")
 
     # Navigation cycle through Manage Calendars
@@ -5000,7 +4998,7 @@ def test_tc_075_historical_appt_retains_timezone_after_navigation(admin_session)
         pytest.skip("[TC_075] No terminal-status row available")
 
     before = target.locator(xpaths["appt_cell_datetime"]).inner_text().strip()
-    name_token = target.locator("xpath=./td[2]").inner_text().strip().split()[0]
+    name_token = target.locator(xpaths["row_name_cell"]).inner_text().strip().split()[0]
     tz_before = _extract_tz_abbrev(before)
     assert tz_before, f"[TC_075] No tz abbreviation in row before-state {before!r}"
 
@@ -5045,7 +5043,7 @@ def test_tc_076_historical_values_remain_unchanged(admin_session):
         pytest.skip("[TC_076] No terminal-status row available")
 
     before = target.locator(xpaths["appt_cell_datetime"]).inner_text().strip()
-    name_token = target.locator("xpath=./td[2]").inner_text().strip().split()[0]
+    name_token = target.locator(xpaths["row_name_cell"]).inner_text().strip().split()[0]
     page.goto(
         config["admin"]["url"].rstrip("/") + "/scheduling/manage-calendars",
         wait_until="domcontentloaded",
@@ -5089,7 +5087,7 @@ def test_tc_077_reschedule_updates_slot_datetime(admin_session):
     if date_btn.count() > 0 and date_btn.is_visible():
         date_btn.click()
         page.wait_for_timeout(2000)
-    slot_locator = page.locator(xpaths["available_time_slot"]).filter(has_not=page.locator("[disabled]"))
+    slot_locator = page.locator(xpaths["available_time_slot"]).filter(has_not=page.locator(xpaths["disabled_attr"]))
     if slot_locator.count() < 2:
         pytest.skip("[TC_077] Not enough slots to verify a different-time reschedule")
     # Pick the LAST slot to differ from the original FIRST slot
@@ -5098,7 +5096,7 @@ def test_tc_077_reschedule_updates_slot_datetime(admin_session):
     new_slot.click()
     page.wait_for_timeout(1500)
     try:
-        confirm = page.locator(xpaths.get("confirm_yes_btn", "xpath=//button[normalize-space(.)='Yes']")).first
+        confirm = page.locator(xpaths["confirm_yes_btn"]).first
         if confirm.count() > 0:
             confirm.click()
     except Exception:
@@ -5107,7 +5105,7 @@ def test_tc_077_reschedule_updates_slot_datetime(admin_session):
     try:
         page.locator(xpaths["reschedule_submit_btn"]).click(force=True)
     except Exception:
-        page.locator("xpath=//button[normalize-space(.)='Reschedule' or normalize-space(.)='Submit']").first.click(force=True)
+        page.locator(xpaths["reschedule_or_submit_btn"]).first.click(force=True)
     page.wait_for_timeout(3000)
     try:
         page.locator(xpaths["success_toast"]).first.wait_for(state="visible", timeout=15000)
@@ -5144,7 +5142,7 @@ def test_tc_078_completed_reschedule_preserves_final_values(admin_session):
     if date_btn.count() > 0 and date_btn.is_visible():
         date_btn.click()
         page.wait_for_timeout(2000)
-    slot_locator = page.locator(xpaths["available_time_slot"]).filter(has_not=page.locator("[disabled]"))
+    slot_locator = page.locator(xpaths["available_time_slot"]).filter(has_not=page.locator(xpaths["disabled_attr"]))
     if slot_locator.count() < 2:
         pytest.skip("[TC_078] Not enough slots for second reschedule")
     new_slot = slot_locator.last
@@ -5152,13 +5150,13 @@ def test_tc_078_completed_reschedule_preserves_final_values(admin_session):
     new_slot.click()
     page.wait_for_timeout(1500)
     try:
-        page.locator(xpaths.get("confirm_yes_btn", "xpath=//button[normalize-space(.)='Yes']")).first.click()
+        page.locator(xpaths["confirm_yes_btn"]).first.click()
     except Exception:
         pass
     try:
         page.locator(xpaths["reschedule_submit_btn"]).click(force=True)
     except Exception:
-        page.locator("xpath=//button[normalize-space(.)='Reschedule' or normalize-space(.)='Submit']").first.click(force=True)
+        page.locator(xpaths["reschedule_or_submit_btn"]).first.click(force=True)
     page.wait_for_timeout(3000)
 
     # Navigate away and back

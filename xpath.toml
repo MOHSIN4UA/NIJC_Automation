@@ -518,6 +518,31 @@ qa_submit_btn = "css=button[data-testid='qa-submit']"
 # Pagination next-page button
 pagination_next_btn = "xpath=//button[@aria-label='Go to next page']"
 
+# Generic radio / checkbox (used by reject-with-reason flows where the
+# dialog presents a small list of rejection reasons as radios)
+generic_radio_or_checkbox = "xpath=//input[@type='radio' or @type='checkbox']"
+
+# Rejection-note textarea — name="rejectionNote" (common) or "reason"
+rejection_note_textarea = "xpath=//textarea[@name='rejectionNote' or @name='reason']"
+
+# Secondary reject-confirmation dialog button. Covers the Conflict-of-
+# Interest "Yes, Reject & Block" path AND the generic "Reject" / "Yes,
+# Reject" paths, falling back to the qa-confirm-reject testid.
+reject_confirm_btn = "xpath=//button[normalize-space(.)='Yes, Reject' or normalize-space(.)='Reject' or @data-testid='qa-confirm-reject']"
+
+# Row's 2nd cell (Primary Member name). Use as a row-relative xpath
+# starting with `./` so it scopes to the row locator.
+row_name_cell = "xpath=./td[2]"
+
+# Reschedule-flow submit button: app uses one of several labels across
+# variants — match by text. The id-based reschedule_submit_btn is the
+# preferred locator; this is the text-based fallback.
+reschedule_or_submit_btn = "xpath=//button[normalize-space(.)='Reschedule' or normalize-space(.)='Submit']"
+
+# Generic "Yes" confirmation button (no other context). Use confirm_yes_btn
+# when the dialog has multiple Yes/Confirm variants.
+generic_yes_btn = "xpath=//button[normalize-space(.)='Yes']"
+
 # "Cancel" item in the row's action-menu popover
 action_menu_btn_last_cell = "css=td:last-child button"
 
