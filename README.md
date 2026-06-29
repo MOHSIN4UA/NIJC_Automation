@@ -106,8 +106,36 @@ pytest tests/test_book_appointment.py::test_tc_068_appointment_stores_original_s
 pytest -k "test_tc_068 or test_tc_069 or test_tc_07"
 ```
 
-### HTML report
-A self-contained HTML report is written to `report/test_report.html` by default (configured in [pytest.ini](pytest.ini)). Open it in a browser after a run for full per-test logs, screenshots, and tracebacks.
+## Generating reports
+
+A self-contained HTML report is produced on **every** test run — the flags are already baked into [pytest.ini](pytest.ini) (`--html=report/test_report.html --self-contained-html`), so a bare `pytest` is enough. No extra setup is needed.
+
+The report includes a per-test **Description** (from each test's docstring), a **timestamp** column, full stdout logs/tracebacks, and **screenshots embedded inline for any failing test** (see the hooks in [conftest.py](conftest.py)).
+
+### One-liner — run a suite and open the report
+```bash
+source .venv/bin/activate && pytest -m manage_calendar --html=report/test_report.html --self-contained-html && xdg-open report/test_report.html
+```
+
+Swap the scope for whatever you want to report on:
+```bash
+pytest                                   # whole suite  → report/test_report.html
+pytest -m book_appointment               # one module
+pytest tests/test_manage_calendar.py     # one file
+pytest "tests/test_manage_calendar.py::test_tc_cal_001_verify_dashboard_is_visible_after_login"  # one test
+```
+
+Then open it in a browser:
+```bash
+xdg-open report/test_report.html
+```
+
+To keep a history instead of overwriting the previous run, use a timestamped filename:
+```bash
+pytest -m manage_appointment --html=report/run_$(date +%Y%m%d_%H%M%S).html --self-contained-html
+```
+
+> Note: `report/` and `*.html` are gitignored — reports are local build artifacts and are never committed.
 
 ---
 

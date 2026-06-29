@@ -45,6 +45,7 @@ def admin_session(playwright, config, xpaths):
     # Launch a persistent browser context
     context = playwright.chromium.launch_persistent_context(
         user_data_dir=user_data_dir,
+        channel="chrome",
         headless=playwright_config.get("headless", False),
         viewport=playwright_config.get("viewport", {"width": 1280, "height": 720})
     )
