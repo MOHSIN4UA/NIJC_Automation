@@ -108,34 +108,39 @@ pytest -k "test_tc_068 or test_tc_069 or test_tc_07"
 
 ## Generating reports
 
-A self-contained HTML report is produced on **every** test run — the flags are already baked into [pytest.ini](pytest.ini) (`--html=report/test_report.html --self-contained-html`), so a bare `pytest` is enough. No extra setup is needed.
+A self-contained HTML report is produced on **every** test run — the flags are already baked into [pytest.ini](pytest.ini) (`--html=... --self-contained-html`), so a bare `pytest` is enough. No extra setup is needed.
 
-The report includes a per-test **Description** (from each test's docstring), a **timestamp** column, full stdout logs/tracebacks, and **screenshots embedded inline for any failing test** (see the hooks in [conftest.py](conftest.py)).
+Each run writes a **uniquely-named, timestamped** file so runs don't overwrite each other:
 
-### One-liner — run a suite and open the report
+```
+report/test_report_<unix-timestamp>.html      e.g. report/test_report_1782710674.html
+```
+
+(The timestamp is appended in `pytest_configure` in [conftest.py](conftest.py).)
+
+The report includes a per-test **Description** (from each test's docstring), a **timestamp** column, full **stdout / stderr / log output captured under each test**, and **screenshots embedded inline for any failing test** (see the hooks in [conftest.py](conftest.py)).
+
+### Run a suite, then open the newest report
 ```bash
-source .venv/bin/activate && pytest -m manage_calendar --html=report/test_report.html --self-contained-html && xdg-open report/test_report.html
+source .venv/bin/activate && pytest -m manage_calendar && xdg-open "$(ls -t report/*.html | head -1)"
 ```
 
 Swap the scope for whatever you want to report on:
 ```bash
-pytest                                   # whole suite  → report/test_report.html
+pytest                                   # whole suite
 pytest -m book_appointment               # one module
 pytest tests/test_manage_calendar.py     # one file
 pytest "tests/test_manage_calendar.py::test_tc_cal_001_verify_dashboard_is_visible_after_login"  # one test
 ```
 
-Then open it in a browser:
+Open the most recent report in a browser:
 ```bash
-xdg-open report/test_report.html
+xdg-open "$(ls -t report/*.html | head -1)"
 ```
 
-To keep a history instead of overwriting the previous run, use a timestamped filename:
-```bash
-pytest -m manage_appointment --html=report/run_$(date +%Y%m%d_%H%M%S).html --self-contained-html
-```
+> Capturing note: output logs appear in the report because `-s` is **not** used (with `-s`, `print()` streams to the console and never reaches the report). The trade-off is that console output is buffered per-test during a run — on a fresh login the live "approve MFA" prompt won't show until the test finishes. If you ever need to watch it live, add `-s` to that one invocation.
 
-> Note: `report/` and `*.html` are gitignored — reports are local build artifacts and are never committed.
+> `report/` and `*.html` are gitignored — reports are local build artifacts and are never committed.
 
 ---
 

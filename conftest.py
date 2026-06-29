@@ -594,11 +594,20 @@ def pytest_runtest_makereport(item, call):
 
 def pytest_configure(config):
     """
-    Ensure report directory exists before tests start.
+    Ensure report directory exists before tests start, and give each run a
+    uniquely-named HTML report ending in a Unix timestamp so consecutive runs
+    don't overwrite each other (e.g. report/test_report_1751193600.html).
     """
     screenshot_dir = "screenshots"
     if not os.path.exists(screenshot_dir):
         os.makedirs(screenshot_dir)
+
+    # Append a Unix-epoch timestamp to the --html report path. pytest.ini sets
+    # a static name (report/test_report.html); we rewrite it per run.
+    htmlpath = getattr(config.option, "htmlpath", None)
+    if htmlpath:
+        root, ext = os.path.splitext(htmlpath)
+        config.option.htmlpath = f"{root}_{int(datetime.now().timestamp())}{ext}"
 
 
 # ---------------------------------------------------------------------------
